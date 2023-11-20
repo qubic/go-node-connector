@@ -2,8 +2,8 @@ package qubic
 
 import (
 	"context"
+	"github.com/0xluk/go-qubic/foundation/tcp"
 	"github.com/pkg/errors"
-	"go-qubic/foundation/tcp"
 )
 
 type Client struct {

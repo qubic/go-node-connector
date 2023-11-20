@@ -1,4 +1,4 @@
-module go-qubic
+module github.com/0xluk/go-qubic
 
 go 1.21.3
 
