@@ -41,6 +41,10 @@ func (qc *QubicConnection) SendHeaderData(ctx context.Context, data RequestRespo
 }
 
 func (qc *QubicConnection) SendRequestData(ctx context.Context, data interface{}) error {
+	if data == nil {
+		return nil
+	}
+
 	// set write deadline only if context has a deadline
 	deadline, ok := ctx.Deadline()
 	if ok {
@@ -49,10 +53,6 @@ func (qc *QubicConnection) SendRequestData(ctx context.Context, data interface{}
 			return errors.Wrap(err, "setting write deadline")
 		}
 		defer qc.conn.SetWriteDeadline(time.Time{})
-	}
-
-	if data == nil {
-		return nil
 	}
 
 	err := binary.Write(qc.conn, binary.LittleEndian, data)
@@ -67,7 +67,7 @@ func (qc *QubicConnection) SendRequestData(ctx context.Context, data interface{}
 func (qc *QubicConnection) ReceiveDataAll() ([]byte, error) {
 	err := qc.conn.SetReadDeadline(time.Now().Add(1 * time.Second))
 	if err != nil {
-		return nil, errors.Wrap(err, "setting read deadline")
+		return nil, errors.Wrap(err, "setting readResponse deadline")
 	}
 	defer qc.conn.SetReadDeadline(time.Time{})
 
