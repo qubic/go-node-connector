@@ -28,7 +28,7 @@ func main() {
 
 	res, err := client.GetBalance(context.Background(), "PKXGRCNOEEDLEGTLAZOSXMEYZIEDLGMSPNTJJJBHIBJISHFFYBBFDVGHRJQF")
 	if err != nil {
-		log.Fatalf("Getting balance info. err: %s", err.Error())
+		log.Fatalf("Getting identity info. err: %s", err.Error())
 	}
 
 	fmt.Println(res.Entity.IncomingAmount - res.Entity.OutgoingAmount)

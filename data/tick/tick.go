@@ -36,7 +36,7 @@ type TickData struct {
 	//}
 	Timelock           [32]byte
 	TransactionDigests [NUMBER_OF_TRANSACTIONS_PER_TICK][32]byte `json:",omitempty"`
-	ContractFees       [1024]int64 `json:",omitempty"`
+	ContractFees       [1024]int64                               `json:",omitempty"`
 	Signature          [SIGNATURE_SIZE]byte
 }
 
@@ -48,12 +48,8 @@ type CurrentTickInfo struct {
 	NumberOfMisalignedVotes uint16
 }
 
-type RequestedTickData struct {
-	Tick uint32
-}
-
 type RequestTickData struct {
-	RequestedTickData RequestedTickData
+	Tick uint32
 }
 
 type Transaction struct {
@@ -65,7 +61,7 @@ type Transaction struct {
 	InputSize            uint16
 }
 
-type RequestedTickTransactions struct {
+type RequestTickTransactions struct {
 	Tick             uint32
 	TransactionFlags [NUMBER_OF_TRANSACTIONS_PER_TICK / 8]uint8
 }

@@ -2,7 +2,7 @@ package qubic
 
 import (
 	"context"
-	"github.com/0xluk/go-qubic/data/balance"
+	"github.com/0xluk/go-qubic/data/identity"
 	"github.com/0xluk/go-qubic/data/tick"
 	"github.com/0xluk/go-qubic/data/tx"
 	"github.com/0xluk/go-qubic/foundation/tcp"
@@ -13,8 +13,8 @@ type Client struct {
 	Qc *tcp.QubicConnection
 }
 
-func NewClient(nodeIP, nodePort string) (*Client, error) {
-	qc, err := tcp.NewQubicConnection(nodeIP, nodePort)
+func NewClient(ctx context.Context, nodeIP, nodePort string) (*Client, error) {
+	qc, err := tcp.NewQubicConnection(ctx, nodeIP, nodePort)
 	if err != nil {
 		return nil, errors.Wrap(err, "creating qubic connection")
 	}
@@ -22,17 +22,17 @@ func NewClient(nodeIP, nodePort string) (*Client, error) {
 	return &Client{Qc: qc}, nil
 }
 
-func GetBalance(ctx context.Context, qc *tcp.QubicConnection, identity string) (balance.GetBalanceResponse, error) {
+func GetIdentity(ctx context.Context, qc *tcp.QubicConnection, id string) (identity.GetIdentityResponse, error) {
 	type requestPacket struct {
 		PublicKey [32]byte
 	}
 
-	request := requestPacket{PublicKey: getPublicKeyFromIdentity(identity)}
+	request := requestPacket{PublicKey: getPublicKeyFromIdentity(id)}
 
-	var result balance.GetBalanceResponse
-	err := tcp.SendGenericRequest(ctx, qc, balance.RequestBalanceType, balance.RespondBalanceType, request, &result)
+	var result identity.GetIdentityResponse
+	err := tcp.SendGenericRequest(ctx, qc, identity.RequestBalanceType, identity.RespondBalanceType, request, &result)
 	if err != nil {
-		return balance.GetBalanceResponse{}, errors.Wrap(err, "sending req to node")
+		return identity.GetIdentityResponse{}, errors.Wrap(err, "sending req to node")
 	}
 
 	return result, nil
@@ -49,6 +49,23 @@ func GetTickInfo(ctx context.Context, qc *tcp.QubicConnection) (tick.CurrentTick
 	return result, nil
 }
 
+func GetTxStatus(ctx context.Context, qc *tcp.QubicConnection, tick uint32, digest [32]byte, sig [64]byte) (tx.ResponseTxStatus, error) {
+	request := tx.RequestTxStatus{
+		Tick:      tick,
+		Digest:    digest,
+		Signature: sig,
+	}
+
+	var result tx.ResponseTxStatus
+
+	err := tcp.SendGenericRequest(ctx, qc, tx.REQUEST_TX_STATUS, tx.RESPONSE_TX_STATUS, request, &result)
+	if err != nil {
+		return tx.ResponseTxStatus{}, errors.Wrap(err, "sending generic req")
+	}
+
+	return result, nil
+}
+
 func GetTickTransactions(ctx context.Context, qc *tcp.QubicConnection, tickNumber uint32) ([]tick.Transaction, error) {
 	tickData, err := GetTickData(ctx, qc, tickNumber)
 	var nrTx int
@@ -59,21 +76,16 @@ func GetTickTransactions(ctx context.Context, qc *tcp.QubicConnection, tickNumbe
 		nrTx++
 	}
 
-	type requestPacket struct {
-		requestedTickTransactions tick.RequestedTickTransactions
-	}
 
-	requestedTickTransactions := tick.RequestedTickTransactions{Tick: tickNumber}
+	requestTickTransactions := tick.RequestTickTransactions{Tick: tickNumber}
 	for i := 0; i < (nrTx+7)/8; i++ {
-		requestedTickTransactions.TransactionFlags[i] = 0
+		requestTickTransactions.TransactionFlags[i] = 0
 	}
 	for i := (nrTx + 7) / 8; i < tick.NUMBER_OF_TRANSACTIONS_PER_TICK/8; i++ {
-		requestedTickTransactions.TransactionFlags[i] = 1
+		requestTickTransactions.TransactionFlags[i] = 1
 	}
 
-	request := requestPacket{requestedTickTransactions: requestedTickTransactions}
-
-	txs, err := tcp.SendTransactionsRequest(ctx, qc, tick.REQUEST_TICK_TRANSACTIONS, tick.BROADCAST_TRANSACTION, request, nrTx)
+	txs, err := tcp.SendTransactionsRequest(ctx, qc, tick.REQUEST_TICK_TRANSACTIONS, tick.BROADCAST_TRANSACTION, requestTickTransactions, nrTx)
 	if err != nil {
 		return nil, errors.Wrap(err, "sending transaction req")
 	}
@@ -91,7 +103,7 @@ func GetTickData(ctx context.Context, qc *tcp.QubicConnection, tickNumber uint32
 		return tick.TickData{}, errors.Errorf("Requested tick %d is in the future. Latest tick is: %d", tickNumber, tickInfo.Tick)
 	}
 
-	request := tick.RequestTickData{RequestedTickData: tick.RequestedTickData{Tick: tickNumber}}
+	request := tick.RequestTickData{Tick: tickNumber}
 
 	var result tick.TickData
 	err = tcp.SendGenericRequest(ctx, qc, tick.REQUEST_TICK_DATA, tick.BROADCAST_FUTURE_TICK_DATA, request, &result)

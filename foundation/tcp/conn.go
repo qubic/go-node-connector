@@ -9,12 +9,21 @@ import (
 	"time"
 )
 
+var defaultTimeout = 5 * time.Second
+
 type QubicConnection struct {
 	conn net.Conn
 }
 
-func NewQubicConnection(nodeIP, nodePort string) (*QubicConnection, error) {
-	conn, err := net.Dial("tcp", net.JoinHostPort(nodeIP, nodePort))
+func NewQubicConnection(ctx context.Context, nodeIP, nodePort string) (*QubicConnection, error) {
+	timeout := defaultTimeout
+	// Use the context deadline to calculate the timeout for net.DialTimeout
+	deadline, ok := ctx.Deadline()
+	if ok {
+		timeout = time.Until(deadline)
+	}
+
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort(nodeIP, nodePort), timeout)
 	if err != nil {
 		return nil, err
 	}

@@ -1,10 +1,17 @@
-package balance
+package identity
 
 const (
-	spectrumDepth      = 24
+	SpectrumDepth      = 24
 	RequestBalanceType = 31
 	RespondBalanceType = 32
 )
+
+type GetIdentityResponse struct {
+	Entity        Entity
+	Tick          uint32
+	SpectrumIndex int32
+	Siblings      [SpectrumDepth][32]byte
+}
 
 type Entity struct {
 	PublicKey                  [32]byte
@@ -14,11 +21,4 @@ type Entity struct {
 	NumberOfOutgoingTransfers  uint32
 	LatestIncomingTransferTick uint32
 	LatestOutgoingTransferTick uint32
-}
-
-type GetBalanceResponse struct {
-	Entity        Entity
-	Tick          uint32
-	SpectrumIndex int32
-	Siblings      [spectrumDepth][32]byte
 }
