@@ -76,7 +76,6 @@ func GetTickTransactions(ctx context.Context, qc *tcp.QubicConnection, tickNumbe
 		nrTx++
 	}
 
-
 	requestTickTransactions := tick.RequestTickTransactions{Tick: tickNumber}
 	for i := 0; i < (nrTx+7)/8; i++ {
 		requestTickTransactions.TransactionFlags[i] = 0
@@ -85,7 +84,7 @@ func GetTickTransactions(ctx context.Context, qc *tcp.QubicConnection, tickNumbe
 		requestTickTransactions.TransactionFlags[i] = 1
 	}
 
-	txs, err := tcp.SendTransactionsRequest(ctx, qc, tick.REQUEST_TICK_TRANSACTIONS, tick.BROADCAST_TRANSACTION, requestTickTransactions, nrTx)
+	txs, err := tcp.SendGetTransactionsRequest(ctx, qc, tick.REQUEST_TICK_TRANSACTIONS, tick.BROADCAST_TRANSACTION, requestTickTransactions, nrTx)
 	if err != nil {
 		return nil, errors.Wrap(err, "sending transaction req")
 	}
@@ -114,8 +113,8 @@ func GetTickData(ctx context.Context, qc *tcp.QubicConnection, tickNumber uint32
 	return result, nil
 }
 
-func SendRawTransaction(ctx context.Context, qc *tcp.QubicConnection, tx tx.SignedTransaction) error {
-	err := tcp.SendGenericRequest(ctx, qc, tick.BROADCAST_TRANSACTION, 0, tx, nil)
+func SendRawTransaction(ctx context.Context, qc *tcp.QubicConnection, rawTx []byte) error {
+	err := tcp.SendTransaction(ctx, qc, tick.BROADCAST_TRANSACTION, 0, rawTx, nil)
 	if err != nil {
 		return errors.Wrap(err, "sending req")
 	}

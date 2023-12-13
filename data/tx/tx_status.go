@@ -16,8 +16,7 @@ type ResponseTxStatus struct {
 	TickOfTx          uint32
 	MoneyFlew         bool
 	Executed          bool
-	Padding           [2]byte
+	NotFound          bool
+	Padding           [5]byte
 	Digest            [32]byte
 }
-
-

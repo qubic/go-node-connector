@@ -15,6 +15,25 @@ type SenderReceiver interface {
 	ReceiveDataAll() ([]byte, error)
 }
 
+func SendTransaction(ctx context.Context, qc SenderReceiver, requestType uint8, responseType uint8, requestData interface{}, dest interface{}) error {
+	err := sendTxReq(ctx, qc, requestType, requestData)
+	if err != nil {
+		return errors.Wrap(err, "sending request")
+	}
+
+	// if dest is nil then we don't care about the response
+	if dest == nil {
+		return nil
+	}
+
+	err = readResponse(ctx, qc, responseType, dest)
+	if err != nil {
+		return errors.Wrap(err, "reading response")
+	}
+
+	return nil
+}
+
 func SendGenericRequest(ctx context.Context, qc SenderReceiver, requestType uint8, responseType uint8, requestData interface{}, dest interface{}) error {
 	err := sendReq(ctx, qc, requestType, requestData)
 	if err != nil {
@@ -34,7 +53,7 @@ func SendGenericRequest(ctx context.Context, qc SenderReceiver, requestType uint
 	return nil
 }
 
-func SendTransactionsRequest(ctx context.Context, qc SenderReceiver, requestType uint8, responseType uint8, requestData interface{}, nrTx int) ([]tick.Transaction, error) {
+func SendGetTransactionsRequest(ctx context.Context, qc SenderReceiver, requestType uint8, responseType uint8, requestData interface{}, nrTx int) ([]tick.Transaction, error) {
 	err := sendReq(ctx, qc, requestType, requestData)
 	if err != nil {
 		return nil, errors.Wrap(err, "sending request")
@@ -113,6 +132,31 @@ func sendReq(ctx context.Context, qc SenderReceiver, requestType uint8, requestD
 	return nil
 }
 
+func sendTxReq(ctx context.Context, qc SenderReceiver, requestType uint8, requestData interface{}) error {
+	packet := struct {
+		Header      RequestResponseHeader
+		RequestData interface{}
+	}{
+		RequestData: requestData,
+	}
+	size := binary.Size(packet.Header) + getSizeOfRequestData(requestData)
+	packet.Header.SetSize(uint32(size))
+	packet.Header.ZeroDejaVu()
+	packet.Header.Type = requestType
+
+	err := qc.SendHeaderData(ctx, packet.Header)
+	if err != nil {
+		return errors.Wrap(err, "sending header data to conn")
+	}
+
+	err = qc.SendRequestData(ctx, packet.RequestData)
+	if err != nil {
+		return errors.Wrap(err, "sending request data to conn")
+	}
+
+	return nil
+}
+
 func readResponse(ctx context.Context, qc SenderReceiver, responseType uint8, dest interface{}) error {
 	// Receive and process response
 	buffer, err := qc.ReceiveDataAll()
@@ -161,9 +205,11 @@ func readResponse(ctx context.Context, qc SenderReceiver, responseType uint8, de
 }
 
 func getSizeOfRequestData(requestData interface{}) int {
-	switch requestData.(type) {
+	switch v := requestData.(type) {
 	case nil:
 		return 0
+	case []byte:
+		return len(v)
 	default:
 		return int(reflect.TypeOf(requestData).Size())
 	}
