@@ -1,11 +1,15 @@
 package qubic
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"github.com/0xluk/go-qubic/data/identity"
 	"github.com/0xluk/go-qubic/data/tick"
 	"github.com/0xluk/go-qubic/data/tx"
 	"github.com/0xluk/go-qubic/foundation/tcp"
+	"github.com/0xluk/go-qubic/foundation/wallet"
+	"github.com/cloudflare/circl/xof/k12"
 	"github.com/pkg/errors"
 )
 
@@ -89,7 +93,17 @@ func GetTickTransactions(ctx context.Context, qc *tcp.QubicConnection, tickNumbe
 		return nil, errors.Wrap(err, "sending transaction req")
 	}
 
-	return txs, nil
+	transactions := make([]tick.Transaction, 0, len(txs))
+
+	for _, txData := range txs {
+		hash, err := getHashFromTxData(txData)
+		if err != nil {
+			return nil, errors.Wrapf(err, "getting hash from tx data: %+v", txData)
+		}
+		transactions = append(transactions, tick.Transaction{Data: txData, Hash: hash})
+	}
+
+	return transactions, nil
 }
 
 func GetTickData(ctx context.Context, qc *tcp.QubicConnection, tickNumber uint32) (tick.TickData, error) {
@@ -153,4 +167,33 @@ func getPublicKeyFromIdentity(identity string) [32]byte {
 	copy(pubKey[:], publicKeyBuffer[:32])
 
 	return pubKey
+}
+
+func getHashFromTxData(txData tick.TransactionData) (tick.TransactionHash, error) {
+	var txDataBuf bytes.Buffer
+	err := binary.Write(&txDataBuf, binary.BigEndian, txData)
+	if err != nil {
+		return tick.TransactionHash{}, errors.Wrap(err, "writing txData to buf")
+	}
+
+	h := k12.NewDraft10([]byte{})
+	_, err = h.Write(txDataBuf.Bytes())
+	if err != nil {
+		return tick.TransactionHash{}, errors.Wrap(err, "writing msg to k12")
+	}
+
+	var digest [32]byte
+	_, err = h.Read(digest[:])
+	if err != nil {
+		return tick.TransactionHash{}, errors.Wrap(err, "reading hash from k12")
+	}
+
+	id := wallet.NewQubicID(digest)
+
+	hash, err := id.GetIdentity()
+	if err != nil {
+		return tick.TransactionHash{}, errors.Wrap(err, "getting id from pubkey")
+	}
+
+	return hash, err
 }

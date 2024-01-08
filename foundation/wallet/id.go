@@ -25,7 +25,6 @@ func NewQubicID(pubKey [32]byte) QubicID {
 	return QubicID{Data: pubKey}
 }
 
-
 func fromIdentityString(identity string) ([32]byte, error) {
 	var buffer [32]byte
 
@@ -65,7 +64,7 @@ func isValidIdFormat(idStr string) bool {
 	return true
 }
 
-func (qid *QubicID) GetIdentity() (string, error) {
+func (qid *QubicID) GetIdentity() ([60]byte, error) {
 	var identity [60]byte
 
 	for i := 0; i < 4; i++ {
@@ -79,13 +78,13 @@ func (qid *QubicID) GetIdentity() (string, error) {
 	h := k12.NewDraft10([]byte{})
 	_, err := h.Write(qid.Data[:])
 	if err != nil {
-		return "", errors.Wrap(err, "writing msg to k12")
+		return [60]byte{}, errors.Wrap(err, "writing msg to k12")
 	}
 
 	var identityBytesChecksum [3]byte
 	_, err = h.Read(identityBytesChecksum[:])
 	if err != nil {
-		return "", errors.Wrap(err, "reading hash from k12")
+		return [60]byte{}, errors.Wrap(err, "reading hash from k12")
 	}
 
 	var identityBytesChecksumInt uint64
@@ -97,5 +96,5 @@ func (qid *QubicID) GetIdentity() (string, error) {
 		identityBytesChecksumInt /= 26
 	}
 
-	return string(identity[:]), nil
+	return identity, nil
 }

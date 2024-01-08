@@ -8,11 +8,12 @@ import (
 	"github.com/pkg/errors"
 	"math/big"
 )
+
 const seedLength = 55
 
 type Wallet struct {
-	PubKey [32]byte
-	PrivKey [32]byte
+	PubKey   [32]byte
+	PrivKey  [32]byte
 	Identity string
 }
 
@@ -36,7 +37,7 @@ func New(seed string) (Wallet, error) {
 	return Wallet{
 		PubKey:   pubKey,
 		PrivKey:  privKey,
-		Identity: identity,
+		Identity: string(identity[:]),
 	}, nil
 }
 
@@ -82,8 +83,6 @@ func encode(p fourq.Point) ([32]byte, error) {
 	temp2 := new(big.Int).And(x01, big.NewInt(0x4000000000000000))
 	temp2.Lsh(temp2, 1)
 
-
-
 	var yBytes [32]byte
 	copy(yBytes[:16], p.Y[0][:])
 	copy(yBytes[16:], p.Y[1][:])
@@ -97,7 +96,7 @@ func encode(p fourq.Point) ([32]byte, error) {
 		bytes := make([]byte, 8)
 		binary.LittleEndian.PutUint64(bytes, temp1.Uint64())
 		for i := 0; i < 8; i++ {
-			pEncoded[3*8 + i] |= bytes[i]
+			pEncoded[3*8+i] |= bytes[i]
 		}
 
 		return pEncoded, nil
@@ -106,7 +105,7 @@ func encode(p fourq.Point) ([32]byte, error) {
 	bytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(bytes, temp2.Uint64())
 	for i := 0; i < 8; i++ {
-		pEncoded[3*8 + i] |= bytes[i]
+		pEncoded[3*8+i] |= bytes[i]
 	}
 
 	return pEncoded, nil
@@ -152,5 +151,3 @@ func GenerateRandomSeed() string {
 
 	return string(seed[:])
 }
-
-

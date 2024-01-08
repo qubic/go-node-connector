@@ -52,7 +52,7 @@ type RequestTickData struct {
 	Tick uint32
 }
 
-type Transaction struct {
+type TransactionData struct {
 	SourcePublicKey      [32]byte
 	DestinationPublicKey [32]byte
 	Amount               int64
@@ -60,6 +60,15 @@ type Transaction struct {
 	InputType            uint16
 	InputSize            uint16
 }
+
+type TransactionHash [60]byte
+
+type Transaction struct {
+	Data TransactionData
+	Hash TransactionHash
+}
+
+type TransactionSig [64]byte
 
 type RequestTickTransactions struct {
 	Tick             uint32

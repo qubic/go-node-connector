@@ -53,7 +53,7 @@ func SendGenericRequest(ctx context.Context, qc SenderReceiver, requestType uint
 	return nil
 }
 
-func SendGetTransactionsRequest(ctx context.Context, qc SenderReceiver, requestType uint8, responseType uint8, requestData interface{}, nrTx int) ([]tick.Transaction, error) {
+func SendGetTransactionsRequest(ctx context.Context, qc SenderReceiver, requestType uint8, responseType uint8, requestData interface{}, nrTx int) ([]tick.TransactionData, error) {
 	err := sendReq(ctx, qc, requestType, requestData)
 	if err != nil {
 		return nil, errors.Wrap(err, "sending request")
@@ -67,7 +67,7 @@ func SendGetTransactionsRequest(ctx context.Context, qc SenderReceiver, requestT
 
 	data := buffer[:]
 	ptr := 0
-	txs := make([]tick.Transaction, 0, nrTx)
+	txs := make([]tick.TransactionData, 0, nrTx)
 
 	for ptr < len(data) {
 		var header RequestResponseHeader
@@ -87,11 +87,12 @@ func SendGetTransactionsRequest(ctx context.Context, qc SenderReceiver, requestT
 			ptr += int(header.GetSize())
 			continue
 		}
-		var tx tick.Transaction
-		destSize := binary.Size(&tx)
+		var tx tick.TransactionData
+		txDataSize := binary.Size(&tx)
 
-		if len(data)-ptr-headerSize < destSize {
-			return nil, errors.Errorf("Not enough data for the tx. Got: %d, expected %d", len(data)-ptr-headerSize, destSize)
+		frameSize := len(data) - ptr - headerSize
+		if frameSize < txDataSize {
+			return nil, errors.Errorf("Not enough data for the tx. Got: %d, expected %d", len(data)-ptr-headerSize, txDataSize)
 			// Not enough data for the tx, break the loop
 		}
 		currentData := data[ptr+headerSize:]
@@ -99,7 +100,6 @@ func SendGetTransactionsRequest(ctx context.Context, qc SenderReceiver, requestT
 		if err != nil {
 			return nil, errors.Wrapf(err, "reading response data:%s", currentData)
 		}
-
 		txs = append(txs, tx)
 		ptr += int(header.GetSize())
 	}

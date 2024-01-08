@@ -57,7 +57,7 @@ func TestGetIdentityFromPubkey(t *testing.T) {
 		t.Fatalf("Got err when getting identity key. err: %s", err.Error())
 	}
 
-	if cmp.Diff(got, expectedIdentity) != "" {
+	if cmp.Diff(string(got[:]), expectedIdentity) != "" {
 		t.Fatalf("Mismatched return value. Expected: %s, got: %s", expectedIdentity, got)
 	}
 }
@@ -91,6 +91,3 @@ func TestCreateWallet(t *testing.T) {
 		t.Fatalf("Mismatched return value. Diff: %s", diff)
 	}
 }
-
-
-
