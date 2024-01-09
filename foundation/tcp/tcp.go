@@ -87,20 +87,38 @@ func SendGetTransactionsRequest(ctx context.Context, qc SenderReceiver, requestT
 			ptr += int(header.GetSize())
 			continue
 		}
-		var tx tick.TransactionData
-		txDataSize := binary.Size(&tx)
+		var txHeader tick.TransactionHeader
+		txHeaderSize := binary.Size(&txHeader)
 
 		frameSize := len(data) - ptr - headerSize
-		if frameSize < txDataSize {
-			return nil, errors.Errorf("Not enough data for the tx. Got: %d, expected %d", len(data)-ptr-headerSize, txDataSize)
-			// Not enough data for the tx, break the loop
+		if frameSize < txHeaderSize {
+			return nil, errors.Errorf("Not enough data for the txHeader. Got: %d, expected %d", len(data)-ptr-headerSize, txHeaderSize)
+			// Not enough data for the txHeader, break the loop
 		}
-		currentData := data[ptr+headerSize:]
-		err = binary.Read(bytes.NewReader(currentData), binary.LittleEndian, &tx)
+
+		offset := ptr + headerSize
+		currentData := data[offset:]
+		err = binary.Read(bytes.NewReader(currentData), binary.LittleEndian, &txHeader)
 		if err != nil {
 			return nil, errors.Wrapf(err, "reading response data:%s", currentData)
 		}
-		txs = append(txs, tx)
+
+		offset += txHeaderSize
+		var input []byte
+		if txHeader.InputSize != 0 {
+			input = data[offset : offset+int(txHeader.InputSize)]
+		}
+
+		offset += int(txHeader.InputSize)
+		var txSignature [64]byte
+		copy(txSignature[:], data[offset:offset+64])
+
+		txData := tick.TransactionData{
+			Header:    txHeader,
+			Input:     input,
+			Signature: txSignature,
+		}
+		txs = append(txs, txData)
 		ptr += int(header.GetSize())
 	}
 

@@ -1,14 +1,12 @@
 package qubic
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"github.com/0xluk/go-qubic/data/identity"
 	"github.com/0xluk/go-qubic/data/tick"
 	"github.com/0xluk/go-qubic/data/tx"
 	"github.com/0xluk/go-qubic/foundation/tcp"
-	"github.com/0xluk/go-qubic/foundation/wallet"
 	"github.com/cloudflare/circl/xof/k12"
 	"github.com/pkg/errors"
 )
@@ -170,14 +168,13 @@ func getPublicKeyFromIdentity(identity string) [32]byte {
 }
 
 func getHashFromTxData(txData tick.TransactionData) (tick.TransactionHash, error) {
-	var txDataBuf bytes.Buffer
-	err := binary.Write(&txDataBuf, binary.BigEndian, txData)
+	txDataMarshalledBytes, err := txData.MarshallBinary()
 	if err != nil {
-		return tick.TransactionHash{}, errors.Wrap(err, "writing txData to buf")
+		return tick.TransactionHash{}, errors.Wrap(err, "marshalling")
 	}
 
 	h := k12.NewDraft10([]byte{})
-	_, err = h.Write(txDataBuf.Bytes())
+	_, err = h.Write(txDataMarshalledBytes)
 	if err != nil {
 		return tick.TransactionHash{}, errors.Wrap(err, "writing msg to k12")
 	}
@@ -188,12 +185,45 @@ func getHashFromTxData(txData tick.TransactionData) (tick.TransactionHash, error
 		return tick.TransactionHash{}, errors.Wrap(err, "reading hash from k12")
 	}
 
-	id := wallet.NewQubicID(digest)
-
-	hash, err := id.GetIdentity()
+	hash, err := getTxHashFromDigestFromPubKey(digest)
 	if err != nil {
 		return tick.TransactionHash{}, errors.Wrap(err, "getting id from pubkey")
 	}
 
 	return hash, err
+}
+
+func getTxHashFromDigestFromPubKey(digest [32]byte) ([60]byte, error) {
+	var hash [60]byte
+
+	for i := 0; i < 4; i++ {
+		var publicKeyFragment = binary.LittleEndian.Uint64(digest[i*8 : (i+1)*8])
+		for j := 0; j < 14; j++ {
+			hash[i*14+j] = byte((publicKeyFragment % 26) + 'a')
+			publicKeyFragment /= 26
+		}
+	}
+
+	h := k12.NewDraft10([]byte{})
+	_, err := h.Write(hash[:])
+	if err != nil {
+		return [60]byte{}, errors.Wrap(err, "writing msg to k12")
+	}
+
+	var identityBytesChecksum [3]byte
+	_, err = h.Read(identityBytesChecksum[:])
+	if err != nil {
+		return [60]byte{}, errors.Wrap(err, "reading hash from k12")
+	}
+
+	var identityBytesChecksumInt uint64
+	identityBytesChecksumInt = uint64(identityBytesChecksum[0]) | (uint64(identityBytesChecksum[1]) << 8) | (uint64(identityBytesChecksum[2]) << 16)
+	identityBytesChecksumInt &= 0x3FFFF
+
+	for i := 0; i < 4; i++ {
+		hash[56+i] = byte((identityBytesChecksumInt % 26) + 'a')
+		identityBytesChecksumInt /= 26
+	}
+
+	return hash, nil
 }

@@ -1,5 +1,11 @@
 package tick
 
+import (
+	"bytes"
+	"encoding/binary"
+	"github.com/pkg/errors"
+)
+
 const (
 	NUMBER_OF_TRANSACTIONS_PER_TICK = 1024
 	SIGNATURE_SIZE                  = 64
@@ -52,7 +58,7 @@ type RequestTickData struct {
 	Tick uint32
 }
 
-type TransactionData struct {
+type TransactionHeader struct {
 	SourcePublicKey      [32]byte
 	DestinationPublicKey [32]byte
 	Amount               int64
@@ -61,14 +67,71 @@ type TransactionData struct {
 	InputSize            uint16
 }
 
+func (th *TransactionHeader) MarshallBinary() ([]byte, error) {
+	var buff bytes.Buffer
+	err := binary.Write(&buff, binary.LittleEndian, th.SourcePublicKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "writing source pubkey to buf")
+	}
+
+	err = binary.Write(&buff, binary.LittleEndian, th.DestinationPublicKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "writing dest pubkey to buf")
+	}
+
+	err = binary.Write(&buff, binary.LittleEndian, th.Amount)
+	if err != nil {
+		return nil, errors.Wrap(err, "writing amount to buf")
+	}
+
+	err = binary.Write(&buff, binary.LittleEndian, th.Tick)
+	if err != nil {
+		return nil, errors.Wrap(err, "writing tick to buf")
+	}
+
+	err = binary.Write(&buff, binary.LittleEndian, th.InputType)
+	if err != nil {
+		return nil, errors.Wrap(err, "writing input type to buf")
+	}
+
+	err = binary.Write(&buff, binary.LittleEndian, th.InputSize)
+	if err != nil {
+		return nil, errors.Wrap(err, "writing input size to buf")
+	}
+
+	return buff.Bytes(), nil
+}
+
+type TransactionData struct {
+	Header    TransactionHeader
+	Input     []byte
+	Signature [64]byte
+}
+
+func (td *TransactionData) MarshallBinary() ([]byte, error) {
+	var out []byte
+	binaryHeader, err := td.Header.MarshallBinary()
+	if err != nil {
+		return nil, errors.Wrap(err, "writing txData to buf")
+	}
+
+	out = append(out, binaryHeader...)
+	out = append(out, td.Input...)
+	out = append(out, td.Signature[:]...)
+
+	return out, nil
+}
+
+type TransactionInput []byte
+
+type TransactionSig [65]byte
+
 type TransactionHash [60]byte
 
 type Transaction struct {
 	Data TransactionData
 	Hash TransactionHash
 }
-
-type TransactionSig [64]byte
 
 type RequestTickTransactions struct {
 	Tick             uint32
