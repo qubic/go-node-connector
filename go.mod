@@ -1,4 +1,4 @@
-module github.com/0xluk/go-qubic
+module github.com/qubic/go-node-connector
 
 go 1.21.3
 

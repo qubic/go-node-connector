@@ -4,18 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"github.com/0xluk/go-qubic/data/tick"
 	"github.com/pkg/errors"
+	"github.com/qubic/go-node-connector/types"
 	"reflect"
 )
 
-type SenderReceiver interface {
-	SendHeaderData(ctx context.Context, data RequestResponseHeader) error
-	SendRequestData(ctx context.Context, data interface{}) error
-	ReceiveDataAll() ([]byte, error)
-}
-
-func SendTransaction(ctx context.Context, qc SenderReceiver, requestType uint8, responseType uint8, requestData interface{}, dest interface{}) error {
+func SendTransaction(ctx context.Context, qc *QubicConnection, requestType uint8, responseType uint8, requestData interface{}, dest interface{}) error {
 	err := sendTxReq(ctx, qc, requestType, requestData)
 	if err != nil {
 		return errors.Wrap(err, "sending request")
@@ -34,7 +28,7 @@ func SendTransaction(ctx context.Context, qc SenderReceiver, requestType uint8, 
 	return nil
 }
 
-func SendGenericRequest(ctx context.Context, qc SenderReceiver, requestType uint8, responseType uint8, requestData interface{}, dest interface{}) error {
+func SendGenericRequest(ctx context.Context, qc *QubicConnection, requestType uint8, responseType uint8, requestData interface{}, dest interface{}) error {
 	err := sendReq(ctx, qc, requestType, requestData)
 	if err != nil {
 		return errors.Wrap(err, "sending request")
@@ -53,7 +47,7 @@ func SendGenericRequest(ctx context.Context, qc SenderReceiver, requestType uint
 	return nil
 }
 
-func SendGetTransactionsRequest(ctx context.Context, qc SenderReceiver, requestType uint8, responseType uint8, requestData interface{}, nrTx int) ([]tick.TransactionData, error) {
+func SendGetTransactionsRequest(ctx context.Context, qc *QubicConnection, requestType uint8, responseType uint8, requestData interface{}, nrTx int) ([]types.TransactionData, error) {
 	err := sendReq(ctx, qc, requestType, requestData)
 	if err != nil {
 		return nil, errors.Wrap(err, "sending request")
@@ -67,7 +61,7 @@ func SendGetTransactionsRequest(ctx context.Context, qc SenderReceiver, requestT
 
 	data := buffer[:]
 	ptr := 0
-	txs := make([]tick.TransactionData, 0, nrTx)
+	txs := make([]types.TransactionData, 0, nrTx)
 
 	for ptr < len(data) {
 		var header RequestResponseHeader
@@ -87,7 +81,7 @@ func SendGetTransactionsRequest(ctx context.Context, qc SenderReceiver, requestT
 			ptr += int(header.GetSize())
 			continue
 		}
-		var txHeader tick.TransactionHeader
+		var txHeader types.TransactionHeader
 		txHeaderSize := binary.Size(&txHeader)
 
 		frameSize := len(data) - ptr - headerSize
@@ -113,7 +107,7 @@ func SendGetTransactionsRequest(ctx context.Context, qc SenderReceiver, requestT
 		var txSignature [64]byte
 		copy(txSignature[:], data[offset:offset+64])
 
-		txData := tick.TransactionData{
+		txData := types.TransactionData{
 			Header:    txHeader,
 			Input:     input,
 			Signature: txSignature,
@@ -125,7 +119,7 @@ func SendGetTransactionsRequest(ctx context.Context, qc SenderReceiver, requestT
 	return txs, nil
 }
 
-func sendReq(ctx context.Context, qc SenderReceiver, requestType uint8, requestData interface{}) error {
+func sendReq(ctx context.Context, qc *QubicConnection, requestType uint8, requestData interface{}) error {
 	packet := struct {
 		Header      RequestResponseHeader
 		RequestData interface{}
@@ -150,7 +144,7 @@ func sendReq(ctx context.Context, qc SenderReceiver, requestType uint8, requestD
 	return nil
 }
 
-func sendTxReq(ctx context.Context, qc SenderReceiver, requestType uint8, requestData interface{}) error {
+func sendTxReq(ctx context.Context, qc *QubicConnection, requestType uint8, requestData interface{}) error {
 	packet := struct {
 		Header      RequestResponseHeader
 		RequestData interface{}
@@ -175,7 +169,7 @@ func sendTxReq(ctx context.Context, qc SenderReceiver, requestType uint8, reques
 	return nil
 }
 
-func readResponse(ctx context.Context, qc SenderReceiver, responseType uint8, dest interface{}) error {
+func readResponse(ctx context.Context, qc *QubicConnection, responseType uint8, dest interface{}) error {
 	// Receive and process response
 	buffer, err := qc.ReceiveDataAll()
 	if err != nil {

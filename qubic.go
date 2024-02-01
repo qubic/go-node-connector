@@ -3,16 +3,14 @@ package qubic
 import (
 	"context"
 	"encoding/binary"
-	"github.com/0xluk/go-qubic/data/identity"
-	"github.com/0xluk/go-qubic/data/tick"
-	"github.com/0xluk/go-qubic/data/tx"
-	"github.com/0xluk/go-qubic/foundation/tcp"
 	"github.com/cloudflare/circl/xof/k12"
 	"github.com/pkg/errors"
+	"github.com/qubic/go-node-connector/foundation/tcp"
+	"github.com/qubic/go-node-connector/types"
 )
 
 type Client struct {
-	Qc *tcp.QubicConnection
+	qc *tcp.QubicConnection
 }
 
 func NewClient(ctx context.Context, nodeIP, nodePort string) (*Client, error) {
@@ -21,55 +19,55 @@ func NewClient(ctx context.Context, nodeIP, nodePort string) (*Client, error) {
 		return nil, errors.Wrap(err, "creating qubic connection")
 	}
 
-	return &Client{Qc: qc}, nil
+	return &Client{qc: qc}, nil
 }
 
-func GetIdentity(ctx context.Context, qc *tcp.QubicConnection, id string) (identity.GetIdentityResponse, error) {
+func (c *Client) GetIdentity(ctx context.Context, id string) (types.GetIdentityResponse, error) {
 	type requestPacket struct {
 		PublicKey [32]byte
 	}
 
 	request := requestPacket{PublicKey: getPublicKeyFromIdentity(id)}
 
-	var result identity.GetIdentityResponse
-	err := tcp.SendGenericRequest(ctx, qc, identity.RequestBalanceType, identity.RespondBalanceType, request, &result)
+	var result types.GetIdentityResponse
+	err := tcp.SendGenericRequest(ctx, c.qc, types.BalanceTypeRequest, types.BalanceTypeResponse, request, &result)
 	if err != nil {
-		return identity.GetIdentityResponse{}, errors.Wrap(err, "sending req to node")
+		return types.GetIdentityResponse{}, errors.Wrap(err, "sending req to node")
 	}
 
 	return result, nil
 }
 
-func GetTickInfo(ctx context.Context, qc *tcp.QubicConnection) (tick.CurrentTickInfo, error) {
-	var result tick.CurrentTickInfo
+func (c *Client) GetTickInfo(ctx context.Context) (types.CurrentTickInfo, error) {
+	var result types.CurrentTickInfo
 
-	err := tcp.SendGenericRequest(ctx, qc, tick.REQUEST_CURRENT_TICK_INFO, tick.RESPOND_CURRENT_TICK_INFO, nil, &result)
+	err := tcp.SendGenericRequest(ctx, c.qc, types.CurrentTickInfoRequest, types.CurrentTickInfoResponse, nil, &result)
 	if err != nil {
-		return tick.CurrentTickInfo{}, errors.Wrap(err, "sending req to node")
+		return types.CurrentTickInfo{}, errors.Wrap(err, "sending req to node")
 	}
 
 	return result, nil
 }
 
-func GetTxStatus(ctx context.Context, qc *tcp.QubicConnection, tick uint32, digest [32]byte, sig [64]byte) (tx.ResponseTxStatus, error) {
-	request := tx.RequestTxStatus{
+func (c *Client) GetTxStatus(ctx context.Context, qc *tcp.QubicConnection, tick uint32, digest [32]byte, sig [64]byte) (types.ResponseTxStatus, error) {
+	request := types.RequestTxStatus{
 		Tick:      tick,
 		Digest:    digest,
 		Signature: sig,
 	}
 
-	var result tx.ResponseTxStatus
+	var result types.ResponseTxStatus
 
-	err := tcp.SendGenericRequest(ctx, qc, tx.REQUEST_TX_STATUS, tx.RESPONSE_TX_STATUS, request, &result)
+	err := tcp.SendGenericRequest(ctx, c.qc, types.TxStatusRequest, types.TxStatusResponse, request, &result)
 	if err != nil {
-		return tx.ResponseTxStatus{}, errors.Wrap(err, "sending generic req")
+		return types.ResponseTxStatus{}, errors.Wrap(err, "sending generic req")
 	}
 
 	return result, nil
 }
 
-func GetTickTransactions(ctx context.Context, qc *tcp.QubicConnection, tickNumber uint32) ([]tick.Transaction, error) {
-	tickData, err := GetTickData(ctx, qc, tickNumber)
+func (c *Client) GetTickTransactions(ctx context.Context, tickNumber uint32) ([]types.Transaction, error) {
+	tickData, err := c.GetTickData(ctx, tickNumber)
 	var nrTx int
 	for _, digest := range tickData.TransactionDigests {
 		if digest == [32]byte{} {
@@ -78,55 +76,55 @@ func GetTickTransactions(ctx context.Context, qc *tcp.QubicConnection, tickNumbe
 		nrTx++
 	}
 
-	requestTickTransactions := tick.RequestTickTransactions{Tick: tickNumber}
+	requestTickTransactions := types.RequestTickTransactions{Tick: tickNumber}
 	for i := 0; i < (nrTx+7)/8; i++ {
 		requestTickTransactions.TransactionFlags[i] = 0
 	}
-	for i := (nrTx + 7) / 8; i < tick.NUMBER_OF_TRANSACTIONS_PER_TICK/8; i++ {
+	for i := (nrTx + 7) / 8; i < types.NumberOfTransactionsPerTick/8; i++ {
 		requestTickTransactions.TransactionFlags[i] = 1
 	}
 
-	txs, err := tcp.SendGetTransactionsRequest(ctx, qc, tick.REQUEST_TICK_TRANSACTIONS, tick.BROADCAST_TRANSACTION, requestTickTransactions, nrTx)
+	txs, err := tcp.SendGetTransactionsRequest(ctx, c.qc, types.TickTransactionsRequest, types.BroadcastTransaction, requestTickTransactions, nrTx)
 	if err != nil {
 		return nil, errors.Wrap(err, "sending transaction req")
 	}
 
-	transactions := make([]tick.Transaction, 0, len(txs))
+	transactions := make([]types.Transaction, 0, len(txs))
 
 	for _, txData := range txs {
 		hash, err := getHashFromTxData(txData)
 		if err != nil {
 			return nil, errors.Wrapf(err, "getting hash from tx data: %+v", txData)
 		}
-		transactions = append(transactions, tick.Transaction{Data: txData, Hash: hash})
+		transactions = append(transactions, types.Transaction{Data: txData, Hash: hash})
 	}
 
 	return transactions, nil
 }
 
-func GetTickData(ctx context.Context, qc *tcp.QubicConnection, tickNumber uint32) (tick.TickData, error) {
-	tickInfo, err := GetTickInfo(ctx, qc)
+func (c *Client) GetTickData(ctx context.Context, tickNumber uint32) (types.TickData, error) {
+	tickInfo, err := c.GetTickInfo(ctx)
 	if err != nil {
-		return tick.TickData{}, errors.Wrap(err, "getting tick info")
+		return types.TickData{}, errors.Wrap(err, "getting tick info")
 	}
 
 	if tickInfo.Tick < tickNumber {
-		return tick.TickData{}, errors.Errorf("Requested tick %d is in the future. Latest tick is: %d", tickNumber, tickInfo.Tick)
+		return types.TickData{}, errors.Errorf("Requested tick %d is in the future. Latest tick is: %d", tickNumber, tickInfo.Tick)
 	}
 
-	request := tick.RequestTickData{Tick: tickNumber}
+	request := types.RequestTickData{Tick: tickNumber}
 
-	var result tick.TickData
-	err = tcp.SendGenericRequest(ctx, qc, tick.REQUEST_TICK_DATA, tick.BROADCAST_FUTURE_TICK_DATA, request, &result)
+	var result types.TickData
+	err = tcp.SendGenericRequest(ctx, c.qc, types.TickDataRequest, types.BroadcastFutureTickData, request, &result)
 	if err != nil {
-		return tick.TickData{}, errors.Wrap(err, "sending req to node")
+		return types.TickData{}, errors.Wrap(err, "sending req to node")
 	}
 
 	return result, nil
 }
 
-func SendRawTransaction(ctx context.Context, qc *tcp.QubicConnection, rawTx []byte) error {
-	err := tcp.SendTransaction(ctx, qc, tick.BROADCAST_TRANSACTION, 0, rawTx, nil)
+func (c *Client) SendRawTransaction(ctx context.Context, rawTx []byte) error {
+	err := tcp.SendTransaction(ctx, c.qc, types.BroadcastTransaction, 0, rawTx, nil)
 	if err != nil {
 		return errors.Wrap(err, "sending req")
 	}
@@ -134,9 +132,30 @@ func SendRawTransaction(ctx context.Context, qc *tcp.QubicConnection, rawTx []by
 	return nil
 }
 
-func (c Client) Close() error {
-	if c.Qc != nil {
-		return c.Qc.Close()
+func (c *Client) GetQuorumTickData(ctx context.Context, tickNumber uint32) (types.ResponseQuorumTickData, error) {
+	tickInfo, err := c.GetTickInfo(ctx)
+	if err != nil {
+		return types.ResponseQuorumTickData{}, errors.Wrap(err, "getting tick info")
+	}
+
+	if tickInfo.Tick < tickNumber {
+		return types.ResponseQuorumTickData{}, errors.Errorf("Requested tick %d is in the future. Latest tick is: %d", tickNumber, tickInfo.Tick)
+	}
+
+	request := types.RequestQuorumTickData{Tick: tickInfo.Tick}
+
+	var result types.ResponseQuorumTickData
+	err = tcp.SendGenericRequest(ctx, c.qc, types.QuorumTickRequest, types.QuorumTickResponse, request, &result)
+	if err != nil {
+		return types.ResponseQuorumTickData{}, errors.Wrap(err, "sending req to node")
+	}
+
+	return result, nil
+}
+
+func (c *Client) Close() error {
+	if c.qc != nil {
+		return c.qc.Close()
 	}
 
 	return nil
@@ -167,27 +186,27 @@ func getPublicKeyFromIdentity(identity string) [32]byte {
 	return pubKey
 }
 
-func getHashFromTxData(txData tick.TransactionData) (tick.TransactionHash, error) {
+func getHashFromTxData(txData types.TransactionData) (types.TransactionHash, error) {
 	txDataMarshalledBytes, err := txData.MarshallBinary()
 	if err != nil {
-		return tick.TransactionHash{}, errors.Wrap(err, "marshalling")
+		return types.TransactionHash{}, errors.Wrap(err, "marshalling")
 	}
 
 	h := k12.NewDraft10([]byte{})
 	_, err = h.Write(txDataMarshalledBytes)
 	if err != nil {
-		return tick.TransactionHash{}, errors.Wrap(err, "writing msg to k12")
+		return types.TransactionHash{}, errors.Wrap(err, "writing msg to k12")
 	}
 
 	var digest [32]byte
 	_, err = h.Read(digest[:])
 	if err != nil {
-		return tick.TransactionHash{}, errors.Wrap(err, "reading hash from k12")
+		return types.TransactionHash{}, errors.Wrap(err, "reading hash from k12")
 	}
 
 	hash, err := getTxHashFromDigestFromPubKey(digest)
 	if err != nil {
-		return tick.TransactionHash{}, errors.Wrap(err, "getting id from pubkey")
+		return types.TransactionHash{}, errors.Wrap(err, "getting id from pubkey")
 	}
 
 	return hash, err
