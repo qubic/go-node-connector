@@ -119,24 +119,103 @@ func SendGetTransactionsRequest(ctx context.Context, qc *QubicConnection, reques
 	return txs, nil
 }
 
-func sendReq(ctx context.Context, qc *QubicConnection, requestType uint8, requestData interface{}) error {
-	packet := struct {
-		Header      RequestResponseHeader
-		RequestData interface{}
-	}{
-		RequestData: requestData,
-	}
-	size := binary.Size(packet.Header) + getSizeOfRequestData(requestData)
-	packet.Header.SetSize(uint32(size))
-	packet.Header.RandomizeDejaVu()
-	packet.Header.Type = requestType
-
-	err := qc.SendHeaderData(ctx, packet.Header)
+func SendGetQuorumTickDataRequest(ctx context.Context, qc *QubicConnection, requestType uint8, responseType uint8, requestData interface{}) ([]types.QuorumTickData, error) {
+	err := sendReq(ctx, qc, requestType, requestData)
 	if err != nil {
-		return errors.Wrap(err, "sending header data to conn")
+		return nil, errors.Wrap(err, "sending request")
 	}
 
-	err = qc.SendRequestData(ctx, packet.RequestData)
+	// Receive and process response
+	buffer, err := qc.ReceiveDataAll()
+	if err != nil {
+		return nil, errors.Wrap(err, "receiving response")
+	}
+
+	data := buffer[:]
+	ptr := 0
+	var quorumTicks []types.QuorumTickData
+
+	for ptr < len(data) {
+		var header RequestResponseHeader
+		headerSize := binary.Size(header)
+
+		if len(data)-ptr < headerSize {
+			// Not enough data for the header, break the loop
+			break
+		}
+
+		err := binary.Read(bytes.NewReader(data[ptr:ptr+headerSize]), binary.BigEndian, &header)
+		if err != nil {
+			return nil, errors.Wrap(err, "reading header data")
+		}
+
+		if header.Type != responseType {
+			ptr += int(header.GetSize())
+			continue
+		}
+		var quorumTickData types.QuorumTickData
+		quorumDataSize := binary.Size(&quorumTickData)
+
+		frameSize := len(data) - ptr - headerSize
+		if frameSize < quorumDataSize {
+			return nil, errors.Errorf("Not enough data for the quorumTickData. Got: %d, expected %d", len(data)-ptr-headerSize, quorumDataSize)
+			// Not enough data for the quorumTickData, break the loop
+		}
+
+		offset := ptr + headerSize
+		currentData := data[offset:]
+		err = binary.Read(bytes.NewReader(currentData), binary.LittleEndian, &quorumTickData)
+		if err != nil {
+			return nil, errors.Wrapf(err, "reading response data:%s", currentData)
+		}
+
+		quorumTicks = append(quorumTicks, quorumTickData)
+		ptr += int(header.GetSize())
+	}
+
+	return quorumTicks, nil
+}
+
+func serializeBinary(data interface{}) ([]byte, error) {
+	if data == nil {
+		return nil, nil
+	}
+
+	var buff bytes.Buffer
+	err := binary.Write(&buff, binary.LittleEndian, data)
+	if err != nil {
+		return nil, errors.Wrap(err, "writing data to buff")
+	}
+
+	return buff.Bytes(), nil
+}
+
+func sendReq(ctx context.Context, qc *QubicConnection, requestType uint8, requestData interface{}) error {
+	serializedReqData, err := serializeBinary(requestData)
+	if err != nil {
+		return errors.Wrap(err, "serializing req data")
+	}
+
+	var header RequestResponseHeader
+
+	packetHeaderSize := binary.Size(header)
+	reqDataSize := len(serializedReqData)
+	packetSize := uint32(packetHeaderSize + reqDataSize)
+
+	header.SetSize(packetSize)
+	header.RandomizeDejaVu()
+	header.Type = requestType
+
+	serializedHeaderData, err := serializeBinary(header)
+	if err != nil {
+		return errors.Wrap(err, "serializing header data")
+	}
+
+	serializedPacket := make([]byte, 0, packetSize)
+	serializedPacket = append(serializedPacket, serializedHeaderData...)
+	serializedPacket = append(serializedPacket, serializedReqData...)
+
+	err = qc.SendRequestData(ctx, serializedPacket)
 	if err != nil {
 		return errors.Wrap(err, "sending request data to conn")
 	}

@@ -69,6 +69,41 @@ func (qc *QubicConnection) SendRequestData(ctx context.Context, data interface{}
 		return errors.Wrap(err, "writing serialized binary data to connection")
 	}
 
+	//var buff bytes.Buffer
+	//err = binary.Write(&buff, binary.LittleEndian, data)
+	//if err != nil {
+	//	return errors.Wrap(err, "writing source pubkey to buf")
+	//}
+	//
+	//byt := buff.Bytes()
+	//
+	//_ = byt
+
+	return nil
+}
+
+func (qc *QubicConnection) SendRawData(ctx context.Context, data []byte) error {
+	if data == nil {
+		return nil
+	}
+
+	// set write deadline only if context has a deadline
+	deadline, ok := ctx.Deadline()
+	if ok {
+		err := qc.conn.SetWriteDeadline(deadline)
+		if err != nil {
+			return errors.Wrap(err, "setting write deadline")
+		}
+		defer qc.conn.SetWriteDeadline(time.Time{})
+	}
+
+	n, err := qc.conn.Write(data)
+	if err != nil {
+		return errors.Wrap(err, "writing data to conn")
+	}
+
+	_ = n
+
 	return nil
 }
 

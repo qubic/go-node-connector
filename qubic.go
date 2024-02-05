@@ -133,24 +133,24 @@ func (c *Client) SendRawTransaction(ctx context.Context, rawTx []byte) error {
 }
 
 func (c *Client) GetQuorumTickData(ctx context.Context, tickNumber uint32) (types.ResponseQuorumTickData, error) {
-	tickInfo, err := c.GetTickInfo(ctx)
-	if err != nil {
-		return types.ResponseQuorumTickData{}, errors.Wrap(err, "getting tick info")
-	}
+	//tickInfo, err := c.GetTickInfo(ctx)
+	//if err != nil {
+	//	return types.ResponseQuorumTickData{}, errors.Wrap(err, "getting tick info")
+	//}
+	//
+	//if tickInfo.Tick < tickNumber {
+	//	return types.ResponseQuorumTickData{}, errors.Errorf("Requested tick %d is in the future. Latest tick is: %d", tickNumber, tickInfo.Tick)
+	//}
 
-	if tickInfo.Tick < tickNumber {
-		return types.ResponseQuorumTickData{}, errors.Errorf("Requested tick %d is in the future. Latest tick is: %d", tickNumber, tickInfo.Tick)
-	}
+	request := types.RequestQuorumTickData{Tick: tickNumber}
 
-	request := types.RequestQuorumTickData{Tick: tickInfo.Tick}
-
-	var result types.ResponseQuorumTickData
-	err = tcp.SendGenericRequest(ctx, c.qc, types.QuorumTickRequest, types.QuorumTickResponse, request, &result)
+	//var result types.ResponseQuorumTickData
+	quorumTicks, err := tcp.SendGetQuorumTickDataRequest(ctx, c.qc, types.QuorumTickRequest, types.QuorumTickResponse, request)
 	if err != nil {
 		return types.ResponseQuorumTickData{}, errors.Wrap(err, "sending req to node")
 	}
 
-	return result, nil
+	return types.ResponseQuorumTickData{QuorumData: quorumTicks}, nil
 }
 
 func (c *Client) Close() error {

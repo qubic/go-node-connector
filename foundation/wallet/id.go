@@ -13,7 +13,7 @@ type QubicID struct {
 }
 
 func NewQubicIDFromIdentity(identity string) (QubicID, error) {
-	pubKey, err := fromIdentityString(identity)
+	pubKey, err := FromIdentityString(identity)
 	if err != nil {
 		return QubicID{}, errors.Wrap(err, "getting pubkey from identity string")
 	}
@@ -25,7 +25,7 @@ func NewQubicID(pubKey [32]byte) QubicID {
 	return QubicID{Data: pubKey}
 }
 
-func fromIdentityString(identity string) ([32]byte, error) {
+func FromIdentityString(identity string) ([32]byte, error) {
 	var buffer [32]byte
 
 	if !isValidIdFormat(identity) {

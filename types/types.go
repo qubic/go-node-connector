@@ -183,7 +183,7 @@ type RequestQuorumTickData struct {
 }
 
 type ResponseQuorumTickData struct {
-	QuorumData [NumberOfComputors]QuorumTickData
+	QuorumData []QuorumTickData
 }
 
 type QuorumTickData struct {
@@ -213,13 +213,4 @@ type QuorumTickData struct {
 	ExpectedNextTickTxDigest [32]byte
 
 	Signature [SignatureSize]byte
-}
-
-type QuorumDiff struct {
-	SaltedResourceTestingDigest uint64
-	SaltedSpectrumDigest        [32]byte
-	SaltedUniverseDigest        [32]byte
-	SaltedComputerDigest        [32]byte
-	ExpectedNextTickTxDigest    [32]byte
-	Signature                   [SignatureSize]byte
 }

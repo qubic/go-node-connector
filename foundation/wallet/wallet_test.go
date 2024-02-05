@@ -2,6 +2,8 @@ package wallet
 
 import (
 	"encoding/hex"
+	"github.com/cloudflare/circl/ecc/fourq"
+	fourq2 "github.com/cloudflare/fourq"
 	"github.com/google/go-cmp/cmp"
 	"testing"
 )
@@ -66,7 +68,7 @@ func TestGetPubKeyFromIdentity(t *testing.T) {
 	identity := "QJRRSSKMJRDKUDTYVNYGAMQPULKAMILQQYOWBEXUDEUWQUMNGDHQYLOAJMEB"
 	expectedpubKey := [32]byte{230, 252, 58, 173, 75, 89, 77, 130, 191, 49, 3, 161, 16, 22, 216, 13, 232, 131, 222, 135, 59, 206, 196, 142, 144, 57, 98, 134, 80, 59, 38, 19}
 
-	got, err := fromIdentityString(identity)
+	got, err := FromIdentityString(identity)
 	if err != nil {
 		t.Fatalf("Got err when creating qubic id from identity. err: %s", err.Error())
 	}
@@ -89,5 +91,25 @@ func TestCreateWallet(t *testing.T) {
 
 	if diff := cmp.Diff(got, expected); diff != "" {
 		t.Fatalf("Mismatched return value. Diff: %s", diff)
+	}
+}
+
+func TestDecodePubKey(t *testing.T) {
+	privKey, err := getPrivateKey(testSeed)
+	if err != nil {
+		t.Fatalf("err creating privkey")
+	}
+
+	var pubKeyPoint fourq.Point
+	pubKeyPoint.ScalarBaseMult(&privKey)
+
+	pubKey, err := encode(pubKeyPoint)
+	if err != nil {
+		t.Fatalf("err encoding pubkey")
+	}
+
+	ok := fourq2.IsOnCurve(pubKey)
+	if !ok {
+		t.Fatalf("pubkey not on curve")
 	}
 }
