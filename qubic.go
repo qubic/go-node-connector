@@ -49,7 +49,7 @@ func (c *Client) GetTickInfo(ctx context.Context) (types.CurrentTickInfo, error)
 	return result, nil
 }
 
-func (c *Client) GetTxStatus(ctx context.Context, qc *tcp.QubicConnection, tick uint32, digest [32]byte, sig [64]byte) (types.ResponseTxStatus, error) {
+func (c *Client) GetTxStatus(ctx context.Context, tick uint32, digest [32]byte, sig [64]byte) (types.ResponseTxStatus, error) {
 	request := types.RequestTxStatus{
 		Tick:      tick,
 		Digest:    digest,
@@ -133,14 +133,14 @@ func (c *Client) SendRawTransaction(ctx context.Context, rawTx []byte) error {
 }
 
 func (c *Client) GetQuorumTickData(ctx context.Context, tickNumber uint32) (types.ResponseQuorumTickData, error) {
-	//tickInfo, err := c.GetTickInfo(ctx)
-	//if err != nil {
-	//	return types.ResponseQuorumTickData{}, errors.Wrap(err, "getting tick info")
-	//}
-	//
-	//if tickInfo.Tick < tickNumber {
-	//	return types.ResponseQuorumTickData{}, errors.Errorf("Requested tick %d is in the future. Latest tick is: %d", tickNumber, tickInfo.Tick)
-	//}
+	tickInfo, err := c.GetTickInfo(ctx)
+	if err != nil {
+		return types.ResponseQuorumTickData{}, errors.Wrap(err, "getting tick info")
+	}
+
+	if tickInfo.Tick < tickNumber {
+		return types.ResponseQuorumTickData{}, errors.Errorf("Requested tick %d is in the future. Latest tick is: %d", tickNumber, tickInfo.Tick)
+	}
 
 	request := types.RequestQuorumTickData{Tick: tickNumber}
 
@@ -151,6 +151,16 @@ func (c *Client) GetQuorumTickData(ctx context.Context, tickNumber uint32) (type
 	}
 
 	return types.ResponseQuorumTickData{QuorumData: quorumTicks}, nil
+}
+
+func (c *Client) GetComputors(ctx context.Context) (types.ResponseComputors, error) {
+	var result types.ResponseComputors
+	err := tcp.SendGenericRequest(ctx, c.qc, types.ComputorsRequest, types.BroadcastComputors, nil, &result)
+	if err != nil {
+		return types.ResponseComputors{}, errors.Wrap(err, "sending req to node")
+	}
+
+	return result, nil
 }
 
 func (c *Client) Close() error {

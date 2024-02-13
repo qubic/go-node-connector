@@ -109,7 +109,7 @@ func (qc *QubicConnection) SendRawData(ctx context.Context, data []byte) error {
 
 // ReceiveDataAll reads all available data from the connection
 func (qc *QubicConnection) ReceiveDataAll() ([]byte, error) {
-	err := qc.conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+	err := qc.conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	if err != nil {
 		return nil, errors.Wrap(err, "setting readResponse deadline")
 	}
@@ -122,6 +122,10 @@ func (qc *QubicConnection) ReceiveDataAll() ([]byte, error) {
 
 	if err != nil {
 		return nil, errors.Wrap(err, "reading from conn")
+	}
+
+	if len(receivedData) == 0 {
+		return nil, errors.New("no data received")
 	}
 
 	return receivedData, nil
