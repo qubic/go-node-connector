@@ -1,4 +1,4 @@
-package wallet
+package types
 
 import (
 	"crypto/rand"
@@ -14,7 +14,7 @@ const seedLength = 55
 type Wallet struct {
 	PubKey   [32]byte
 	PrivKey  [32]byte
-	Identity string
+	Identity Identity
 }
 
 func New(seed string) (Wallet, error) {
@@ -28,8 +28,8 @@ func New(seed string) (Wallet, error) {
 		return Wallet{}, errors.Wrap(err, "getting pubkey")
 	}
 
-	id := NewQubicID(pubKey)
-	identity, err := id.GetIdentity()
+	var id Identity
+	id, err = id.FromPubKey(pubKey, false)
 	if err != nil {
 		return Wallet{}, errors.Wrap(err, "getting identity string")
 	}
@@ -37,7 +37,7 @@ func New(seed string) (Wallet, error) {
 	return Wallet{
 		PubKey:   pubKey,
 		PrivKey:  privKey,
-		Identity: string(identity[:]),
+		Identity: id,
 	}, nil
 }
 

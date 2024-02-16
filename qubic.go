@@ -1,109 +1,92 @@
 package qubic
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
-	"github.com/cloudflare/circl/xof/k12"
 	"github.com/pkg/errors"
-	"github.com/qubic/go-node-connector/foundation/tcp"
 	"github.com/qubic/go-node-connector/types"
+	"io"
+	"net"
+	"time"
 )
 
-type Client struct {
-	qc *tcp.QubicConnection
+type ReaderUnmarshaler interface {
+	UnmarshallFromReader(r io.Reader) error
 }
 
-func NewClient(ctx context.Context, nodeIP, nodePort string) (*Client, error) {
-	qc, err := tcp.NewQubicConnection(ctx, nodeIP, nodePort)
-	if err != nil {
-		return nil, errors.Wrap(err, "creating qubic connection")
-	}
+var defaultTimeout = 5 * time.Second
 
-	return &Client{qc: qc}, nil
+type Connection struct {
+	conn net.Conn
 }
 
-func (c *Client) GetIdentity(ctx context.Context, id string) (types.GetIdentityResponse, error) {
-	type requestPacket struct {
-		PublicKey [32]byte
+func NewConnection(ctx context.Context, nodeIP, nodePort string) (*Connection, error) {
+	timeout := defaultTimeout
+	// Use the context deadline to calculate the timeout for net.DialTimeout
+	deadline, ok := ctx.Deadline()
+	if ok {
+		timeout = time.Until(deadline)
 	}
 
-	request := requestPacket{PublicKey: getPublicKeyFromIdentity(id)}
-
-	var result types.GetIdentityResponse
-	err := tcp.SendGenericRequest(ctx, c.qc, types.BalanceTypeRequest, types.BalanceTypeResponse, request, &result)
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort(nodeIP, nodePort), timeout)
 	if err != nil {
-		return types.GetIdentityResponse{}, errors.Wrap(err, "sending req to node")
+		return nil, err
+	}
+
+	return &Connection{conn: conn}, nil
+}
+
+func (qc *Connection) GetIdentity(ctx context.Context, id string) (types.AddressInfo, error) {
+	identity := types.Identity(id)
+	pubKey, err := identity.ToPubKey()
+	if err != nil {
+		return types.AddressInfo{}, errors.Wrap(err, "converting identity to public key")
+	}
+
+	var result types.AddressInfo
+	err = qc.sendRequest(ctx, types.BalanceTypeRequest, pubKey, &result)
+	if err != nil {
+		return types.AddressInfo{}, errors.Wrap(err, "sending req to node")
 	}
 
 	return result, nil
 }
 
-func (c *Client) GetTickInfo(ctx context.Context) (types.CurrentTickInfo, error) {
-	var result types.CurrentTickInfo
+func (qc *Connection) GetTickInfo(ctx context.Context) (types.TickInfo, error) {
+	var result types.TickInfo
 
-	err := tcp.SendGenericRequest(ctx, c.qc, types.CurrentTickInfoRequest, types.CurrentTickInfoResponse, nil, &result)
+	err := qc.sendRequest(ctx, types.CurrentTickInfoRequest, nil, &result)
 	if err != nil {
-		return types.CurrentTickInfo{}, errors.Wrap(err, "sending req to node")
+		return types.TickInfo{}, errors.Wrap(err, "sending req to node")
 	}
 
 	return result, nil
 }
 
-func (c *Client) GetTxStatus(ctx context.Context, tick uint32, digest [32]byte, sig [64]byte) (types.ResponseTxStatus, error) {
-	request := types.RequestTxStatus{
+func (qc *Connection) GetTxStatus(ctx context.Context, tick uint32, digest [32]byte, sig [64]byte) (types.TransactionStatus, error) {
+	request := struct {
+		Tick      uint32
+		Digest    [32]byte
+		Signature [64]byte
+	}{
 		Tick:      tick,
 		Digest:    digest,
 		Signature: sig,
 	}
 
-	var result types.ResponseTxStatus
+	var result types.TransactionStatus
 
-	err := tcp.SendGenericRequest(ctx, c.qc, types.TxStatusRequest, types.TxStatusResponse, request, &result)
+	err := qc.sendRequest(ctx, types.TxStatusRequest, request, &result)
 	if err != nil {
-		return types.ResponseTxStatus{}, errors.Wrap(err, "sending generic req")
+		return types.TransactionStatus{}, errors.Wrap(err, "sending generic req")
 	}
 
 	return result, nil
 }
 
-func (c *Client) GetTickTransactions(ctx context.Context, tickNumber uint32) ([]types.Transaction, error) {
-	tickData, err := c.GetTickData(ctx, tickNumber)
-	var nrTx int
-	for _, digest := range tickData.TransactionDigests {
-		if digest == [32]byte{} {
-			continue
-		}
-		nrTx++
-	}
-
-	requestTickTransactions := types.RequestTickTransactions{Tick: tickNumber}
-	for i := 0; i < (nrTx+7)/8; i++ {
-		requestTickTransactions.TransactionFlags[i] = 0
-	}
-	for i := (nrTx + 7) / 8; i < types.NumberOfTransactionsPerTick/8; i++ {
-		requestTickTransactions.TransactionFlags[i] = 1
-	}
-
-	txs, err := tcp.SendGetTransactionsRequest(ctx, c.qc, types.TickTransactionsRequest, types.BroadcastTransaction, requestTickTransactions, nrTx)
-	if err != nil {
-		return nil, errors.Wrap(err, "sending transaction req")
-	}
-
-	transactions := make([]types.Transaction, 0, len(txs))
-
-	for _, txData := range txs {
-		hash, err := getHashFromTxData(txData)
-		if err != nil {
-			return nil, errors.Wrapf(err, "getting hash from tx data: %+v", txData)
-		}
-		transactions = append(transactions, types.Transaction{Data: txData, Hash: hash})
-	}
-
-	return transactions, nil
-}
-
-func (c *Client) GetTickData(ctx context.Context, tickNumber uint32) (types.TickData, error) {
-	tickInfo, err := c.GetTickInfo(ctx)
+func (qc *Connection) GetTickData(ctx context.Context, tickNumber uint32) (types.TickData, error) {
+	tickInfo, err := qc.GetTickInfo(ctx)
 	if err != nil {
 		return types.TickData{}, errors.Wrap(err, "getting tick info")
 	}
@@ -112,10 +95,10 @@ func (c *Client) GetTickData(ctx context.Context, tickNumber uint32) (types.Tick
 		return types.TickData{}, errors.Errorf("Requested tick %d is in the future. Latest tick is: %d", tickNumber, tickInfo.Tick)
 	}
 
-	request := types.RequestTickData{Tick: tickNumber}
+	request := struct {Tick uint32}{Tick: tickNumber}
 
 	var result types.TickData
-	err = tcp.SendGenericRequest(ctx, c.qc, types.TickDataRequest, types.BroadcastFutureTickData, request, &result)
+	err = qc.sendRequest(ctx, types.TickDataRequest, request, &result)
 	if err != nil {
 		return types.TickData{}, errors.Wrap(err, "sending req to node")
 	}
@@ -123,8 +106,39 @@ func (c *Client) GetTickData(ctx context.Context, tickNumber uint32) (types.Tick
 	return result, nil
 }
 
-func (c *Client) SendRawTransaction(ctx context.Context, rawTx []byte) error {
-	err := tcp.SendTransaction(ctx, c.qc, types.BroadcastTransaction, 0, rawTx, nil)
+func (qc *Connection) GetTickTransactions(ctx context.Context, tickNumber uint32) (types.Transactions, error) {
+	tickData, err := qc.GetTickData(ctx, tickNumber)
+	var nrTx int
+	for _, digest := range tickData.TransactionDigests {
+		if digest == [32]byte{} {
+			continue
+		}
+		nrTx++
+	}
+
+	requestTickTransactions := struct {
+		Tick             uint32
+		TransactionFlags [types.NumberOfTransactionsPerTick / 8]uint8
+	}{Tick: tickNumber}
+
+	for i := 0; i < (nrTx+7)/8; i++ {
+		requestTickTransactions.TransactionFlags[i] = 0
+	}
+	for i := (nrTx + 7) / 8; i < types.NumberOfTransactionsPerTick/8; i++ {
+		requestTickTransactions.TransactionFlags[i] = 1
+	}
+
+	var result types.Transactions
+	err = qc.sendRequest(ctx, types.TickTransactionsRequest, requestTickTransactions, &result)
+	if err != nil {
+		return nil, errors.Wrap(err, "sending transaction req")
+	}
+
+	return result, nil
+}
+
+func (qc *Connection) SendRawTransaction(ctx context.Context, rawTx []byte) error {
+	err := qc.sendRequest(ctx, types.BroadcastTransaction, rawTx, nil)
 	if err != nil {
 		return errors.Wrap(err, "sending req")
 	}
@@ -132,127 +146,143 @@ func (c *Client) SendRawTransaction(ctx context.Context, rawTx []byte) error {
 	return nil
 }
 
-func (c *Client) GetQuorumTickData(ctx context.Context, tickNumber uint32) (types.ResponseQuorumTickData, error) {
-	tickInfo, err := c.GetTickInfo(ctx)
+func (qc *Connection) GetQuorumVotes(ctx context.Context, tickNumber uint32) (types.QuorumVotes, error) {
+	tickInfo, err := qc.GetTickInfo(ctx)
 	if err != nil {
-		return types.ResponseQuorumTickData{}, errors.Wrap(err, "getting tick info")
+		return types.QuorumVotes{}, errors.Wrap(err, "getting tick info")
 	}
 
 	if tickInfo.Tick < tickNumber {
-		return types.ResponseQuorumTickData{}, errors.Errorf("Requested tick %d is in the future. Latest tick is: %d", tickNumber, tickInfo.Tick)
+		return types.QuorumVotes{}, errors.Errorf("Requested tick %d is in the future. Latest tick is: %d", tickNumber, tickInfo.Tick)
 	}
 
-	request := types.RequestQuorumTickData{Tick: tickNumber}
+	request := struct {
+		Tick      uint32
+		VoteFlags [(types.NumberOfComputors + 7) / 8]byte
+	}{Tick: tickNumber}
 
-	//var result types.ResponseQuorumTickData
-	quorumTicks, err := tcp.SendGetQuorumTickDataRequest(ctx, c.qc, types.QuorumTickRequest, types.QuorumTickResponse, request)
+	var result types.QuorumVotes
+	err = qc.sendRequest(ctx, types.QuorumTickRequest, request, &result)
 	if err != nil {
-		return types.ResponseQuorumTickData{}, errors.Wrap(err, "sending req to node")
-	}
-
-	return types.ResponseQuorumTickData{QuorumData: quorumTicks}, nil
-}
-
-func (c *Client) GetComputors(ctx context.Context) (types.ResponseComputors, error) {
-	var result types.ResponseComputors
-	err := tcp.SendGenericRequest(ctx, c.qc, types.ComputorsRequest, types.BroadcastComputors, nil, &result)
-	if err != nil {
-		return types.ResponseComputors{}, errors.Wrap(err, "sending req to node")
+		return types.QuorumVotes{}, errors.Wrap(err, "sending req to node")
 	}
 
 	return result, nil
 }
 
-func (c *Client) Close() error {
-	if c.qc != nil {
-		return c.qc.Close()
+func (qc *Connection) GetComputors(ctx context.Context) (types.Computors, error) {
+	var result types.Computors
+	err := qc.sendRequest(ctx, types.ComputorsRequest, nil, &result)
+	if err != nil {
+		return types.Computors{}, errors.Wrap(err, "sending req to node")
+	}
+
+	return result, nil
+}
+
+func (qc *Connection) sendRequest(ctx context.Context, requestType uint8, requestData interface{}, dest ReaderUnmarshaler) error {
+	packet, err := serializeRequest(ctx, requestType, requestData)
+	if err != nil {
+		return errors.Wrap(err, "serializing request")
+	}
+
+	err = qc.writePacketToConn(ctx, packet)
+	if err != nil {
+		return errors.Wrap(err, "sending packet to qubic conn")
+	}
+
+	// if dest is nil then we don't care about the response
+	if dest == nil {
+		return nil
+	}
+
+	err = qc.readPacketIntoDest(ctx, dest)
+	if err != nil {
+		return errors.Wrap(err, "reading response")
 	}
 
 	return nil
 }
 
-func getPublicKeyFromIdentity(identity string) [32]byte {
-	publicKeyBuffer := make([]byte, 32)
-
-	for i := 0; i < 4; i++ {
-		value := uint64(0)
-		for j := 13; j >= 0; j-- {
-			if identity[i*14+j] < 'A' || identity[i*14+j] > 'Z' {
-				return [32]byte{} // Error condition: invalid character in identity
-			}
-
-			value = value*26 + uint64(identity[i*14+j]-'A')
-		}
-
-		// Copy the 8-byte value into publicKeyBuffer
-		for k := 0; k < 8; k++ {
-			publicKeyBuffer[i*8+k] = byte(value >> (k * 8))
-		}
+func (qc *Connection) writePacketToConn(ctx context.Context, packet []byte) error {
+	if packet == nil {
+		return nil
 	}
 
-	var pubKey [32]byte
-	copy(pubKey[:], publicKeyBuffer[:32])
+	// set write deadline only if context has a deadline
+	deadline, ok := ctx.Deadline()
+	if ok {
+		err := qc.conn.SetWriteDeadline(deadline)
+		if err != nil {
+			return errors.Wrap(err, "setting write deadline")
+		}
+		defer qc.conn.SetWriteDeadline(time.Time{})
+	}
 
-	return pubKey
+	_, err := qc.conn.Write(packet)
+	if err != nil {
+		return errors.Wrap(err, "writing serialized binary data to connection")
+	}
+
+	return nil
 }
 
-func getHashFromTxData(txData types.TransactionData) (types.TransactionHash, error) {
-	txDataMarshalledBytes, err := txData.MarshallBinary()
-	if err != nil {
-		return types.TransactionHash{}, errors.Wrap(err, "marshalling")
+func (qc *Connection) readPacketIntoDest(ctx context.Context, dest ReaderUnmarshaler) error {
+	if dest == nil {
+		return nil
 	}
 
-	h := k12.NewDraft10([]byte{})
-	_, err = h.Write(txDataMarshalledBytes)
+	err := dest.UnmarshallFromReader(qc.conn)
 	if err != nil {
-		return types.TransactionHash{}, errors.Wrap(err, "writing msg to k12")
+		return errors.Wrap(err, "unmarshalling response")
 	}
 
-	var digest [32]byte
-	_, err = h.Read(digest[:])
-	if err != nil {
-		return types.TransactionHash{}, errors.Wrap(err, "reading hash from k12")
-	}
-
-	hash, err := getTxHashFromDigestFromPubKey(digest)
-	if err != nil {
-		return types.TransactionHash{}, errors.Wrap(err, "getting id from pubkey")
-	}
-
-	return hash, err
+	return nil
 }
 
-func getTxHashFromDigestFromPubKey(digest [32]byte) ([60]byte, error) {
-	var hash [60]byte
+// Close closes the connection
+func (qc *Connection) Close() error {
+	return qc.conn.Close()
+}
 
-	for i := 0; i < 4; i++ {
-		var publicKeyFragment = binary.LittleEndian.Uint64(digest[i*8 : (i+1)*8])
-		for j := 0; j < 14; j++ {
-			hash[i*14+j] = byte((publicKeyFragment % 26) + 'a')
-			publicKeyFragment /= 26
-		}
+func serializeBinary(data interface{}) ([]byte, error) {
+	if data == nil {
+		return nil, nil
 	}
 
-	h := k12.NewDraft10([]byte{})
-	_, err := h.Write(hash[:])
+	var buff bytes.Buffer
+	err := binary.Write(&buff, binary.LittleEndian, data)
 	if err != nil {
-		return [60]byte{}, errors.Wrap(err, "writing msg to k12")
+		return nil, errors.Wrap(err, "writing data to buff")
 	}
 
-	var identityBytesChecksum [3]byte
-	_, err = h.Read(identityBytesChecksum[:])
+	return buff.Bytes(), nil
+}
+
+func serializeRequest(ctx context.Context, requestType uint8, requestData interface{}) ([]byte, error) {
+	serializedReqData, err := serializeBinary(requestData)
 	if err != nil {
-		return [60]byte{}, errors.Wrap(err, "reading hash from k12")
+		return nil, errors.Wrap(err, "serializing req data")
 	}
 
-	var identityBytesChecksumInt uint64
-	identityBytesChecksumInt = uint64(identityBytesChecksum[0]) | (uint64(identityBytesChecksum[1]) << 8) | (uint64(identityBytesChecksum[2]) << 16)
-	identityBytesChecksumInt &= 0x3FFFF
+	var header types.RequestResponseHeader
 
-	for i := 0; i < 4; i++ {
-		hash[56+i] = byte((identityBytesChecksumInt % 26) + 'a')
-		identityBytesChecksumInt /= 26
+	packetHeaderSize := binary.Size(header)
+	reqDataSize := len(serializedReqData)
+	packetSize := uint32(packetHeaderSize + reqDataSize)
+
+	header.SetSize(packetSize)
+	header.RandomizeDejaVu()
+	header.Type = requestType
+
+	serializedHeaderData, err := serializeBinary(header)
+	if err != nil {
+		return nil, errors.Wrap(err, "serializing header data")
 	}
 
-	return hash, nil
+	serializedPacket := make([]byte, 0, packetSize)
+	serializedPacket = append(serializedPacket, serializedHeaderData...)
+	serializedPacket = append(serializedPacket, serializedReqData...)
+
+	return serializedPacket, nil
 }
