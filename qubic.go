@@ -39,7 +39,7 @@ func NewConnection(ctx context.Context, nodeIP, nodePort string) (*Connection, e
 
 func (qc *Connection) GetIdentity(ctx context.Context, id string) (types.AddressInfo, error) {
 	identity := types.Identity(id)
-	pubKey, err := identity.ToPubKey()
+	pubKey, err := identity.ToPubKey(false)
 	if err != nil {
 		return types.AddressInfo{}, errors.Wrap(err, "converting identity to public key")
 	}
@@ -209,17 +209,19 @@ func (qc *Connection) writePacketToConn(ctx context.Context, packet []byte) erro
 		return nil
 	}
 
-	// set write deadline only if context has a deadline
+	// context deadline overrides defaultTimeout deadline
+	writeDeadline := time.Now().Add(defaultTimeout)
 	deadline, ok := ctx.Deadline()
 	if ok {
-		err := qc.conn.SetWriteDeadline(deadline)
-		if err != nil {
-			return errors.Wrap(err, "setting write deadline")
-		}
-		defer qc.conn.SetWriteDeadline(time.Time{})
+		writeDeadline = deadline
 	}
+	err := qc.conn.SetWriteDeadline(writeDeadline)
+	if err != nil {
+		return errors.Wrap(err, "setting write deadline")
+	}
+	defer qc.conn.SetWriteDeadline(time.Time{})
 
-	_, err := qc.conn.Write(packet)
+	_, err = qc.conn.Write(packet)
 	if err != nil {
 		return errors.Wrap(err, "writing serialized binary data to connection")
 	}
@@ -232,7 +234,20 @@ func (qc *Connection) readPacketIntoDest(ctx context.Context, dest ReaderUnmarsh
 		return nil
 	}
 
-	err := dest.UnmarshallFromReader(qc.conn)
+	// context deadline overrides defaultTimeout deadline
+	readDeadline := time.Now().Add(defaultTimeout)
+	deadline, ok := ctx.Deadline()
+	if ok {
+		readDeadline = deadline
+	}
+
+	err := qc.conn.SetReadDeadline(readDeadline)
+	if err != nil {
+		return errors.Wrap(err, "setting read deadline")
+	}
+	defer qc.conn.SetReadDeadline(time.Time{})
+
+	err = dest.UnmarshallFromReader(qc.conn)
 	if err != nil {
 		return errors.Wrap(err, "unmarshalling response")
 	}

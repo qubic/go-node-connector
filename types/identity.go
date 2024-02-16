@@ -55,7 +55,12 @@ func (i *Identity) FromPubKey(pubKey [32]byte, isLowerCase bool) (Identity, erro
 	return Identity(identity[:]), nil
 }
 
-func (i *Identity) ToPubKey() ([32]byte, error) {
+func (i *Identity) ToPubKey(isLowerCase bool) ([32]byte, error) {
+	letters := []byte{'A', 'Z'}
+	if isLowerCase {
+		letters = []byte{'a', 'z'}
+	}
+
 	var pubKey [32]byte
 
 	if !isValidIdFormat(string(*i)) {
@@ -70,12 +75,12 @@ func (i *Identity) ToPubKey() ([32]byte, error) {
 
 	for i := 0; i < 4; i++ {
 		for j := 13; j >= 0; j-- {
-			if idBytes[i * 14 + j] < 'A' || idBytes[i * 14 + j] > 'Z'{
+			if idBytes[i * 14 + j] < letters[0] || idBytes[i * 14 + j] > letters[1] {
 				return [32]byte{}, errors.New( "invalid conversion")
 			}
 
 			im := binary.LittleEndian.Uint64(pubKey[i*8 : (i+1)*8])
-			im = im*26 + uint64(idBytes[i*14+j]-'A')
+			im = im*26 + uint64(idBytes[i*14+j]-letters[0])
 			imBytes := make([]byte, 8)
 			binary.LittleEndian.PutUint64(imBytes, im)
 
@@ -98,7 +103,7 @@ func (i *Identity) String() string {
 // isValidIdFormat checks if the provided string has a valid ID format.
 func isValidIdFormat(idStr string) bool {
 	for _, c := range idStr {
-		if !(unicode.IsUpper(c) && unicode.IsLetter(c)) {
+		if !unicode.IsLetter(c) {
 			return false
 		}
 	}

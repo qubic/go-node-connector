@@ -35,8 +35,8 @@ func (ai *AddressInfo) UnmarshallFromReader(r io.Reader) error {
 		return errors.Wrap(err, "reading header")
 	}
 
-	if header.Type != BalanceTypeRequest {
-		return errors.Errorf("Invalid header type, expected %d, found %d", BalanceTypeRequest, header.Type)
+	if header.Type != BalanceTypeResponse {
+		return errors.Errorf("Invalid header type, expected %d, found %d", BalanceTypeResponse, header.Type)
 	}
 
 	err = binary.Read(r, binary.LittleEndian, ai)

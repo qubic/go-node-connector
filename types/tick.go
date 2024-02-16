@@ -70,21 +70,35 @@ type TickInfo struct {
 }
 
 func (ti *TickInfo) UnmarshallFromReader(r io.Reader) error {
-	var header RequestResponseHeader
+	for {
+		var header RequestResponseHeader
 
-	err := binary.Read(r, binary.BigEndian, &header)
-	if err != nil {
-		return errors.Wrap(err, "reading header")
+		err := binary.Read(r, binary.BigEndian, &header)
+		if err != nil {
+			return errors.Wrap(err, "reading header")
+		}
+
+		if header.Type == 0 {
+			ignoredBytes := make([]byte, header.GetSize() - uint32(binary.Size(header)))
+			_, err := r.Read(ignoredBytes)
+			if err != nil {
+				return errors.Wrap(err, "reading ignored bytes")
+			}
+			continue
+		}
+
+		if header.Type != CurrentTickInfoResponse {
+			return errors.Errorf("Invalid header type, expected %d, found %d", CurrentTickInfoResponse, header.Type)
+		}
+
+		err = binary.Read(r, binary.LittleEndian, ti)
+		if err != nil {
+			return errors.Wrap(err, "reading tick data from reader")
+		}
+
+		break
 	}
 
-	if header.Type != CurrentTickInfoResponse {
-		return errors.Errorf("Invalid header type, expected %d, found %d", CurrentTickInfoResponse, header.Type)
-	}
-
-	err = binary.Read(r, binary.LittleEndian, ti)
-	if err != nil {
-		return errors.Wrap(err, "reading tick data from reader")
-	}
 
 	return nil
 }
