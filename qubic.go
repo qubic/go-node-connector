@@ -18,7 +18,8 @@ type ReaderUnmarshaler interface {
 var defaultTimeout = 5 * time.Second
 
 type Connection struct {
-	conn net.Conn
+	conn  net.Conn
+	Peers types.PublicPeers
 }
 
 func NewConnection(ctx context.Context, nodeIP, nodePort string) (*Connection, error) {
@@ -34,7 +35,24 @@ func NewConnection(ctx context.Context, nodeIP, nodePort string) (*Connection, e
 		return nil, err
 	}
 
-	return &Connection{conn: conn}, nil
+	c := Connection{conn: conn}
+
+	c.Peers, err = c.GetPeers(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "getting Peers")
+	}
+
+	return &c, nil
+}
+
+func (qc *Connection) GetPeers(ctx context.Context) (types.PublicPeers, error) {
+	var result types.PublicPeers
+	err := qc.sendRequest(ctx, types.CurrentTickInfoRequest, nil, &result)
+	if err != nil {
+		return types.PublicPeers{}, errors.Wrap(err, "sending req to node")
+	}
+
+	return result, nil
 }
 
 func (qc *Connection) GetIdentity(ctx context.Context, id string) (types.AddressInfo, error) {
@@ -95,7 +113,7 @@ func (qc *Connection) GetTickData(ctx context.Context, tickNumber uint32) (types
 		return types.TickData{}, errors.Errorf("Requested tick %d is in the future. Latest tick is: %d", tickNumber, tickInfo.Tick)
 	}
 
-	request := struct {Tick uint32}{Tick: tickNumber}
+	request := struct{ Tick uint32 }{Tick: tickNumber}
 
 	var result types.TickData
 	err = qc.sendRequest(ctx, types.TickDataRequest, request, &result)
@@ -114,6 +132,10 @@ func (qc *Connection) GetTickTransactions(ctx context.Context, tickNumber uint32
 			continue
 		}
 		nrTx++
+	}
+
+	if nrTx == 0 {
+		return types.Transactions{}, nil
 	}
 
 	requestTickTransactions := struct {
@@ -185,7 +207,6 @@ func (qc *Connection) sendRequest(ctx context.Context, requestType uint8, reques
 	if err != nil {
 		return errors.Wrap(err, "serializing request")
 	}
-
 	err = qc.writePacketToConn(ctx, packet)
 	if err != nil {
 		return errors.Wrap(err, "sending packet to qubic conn")
