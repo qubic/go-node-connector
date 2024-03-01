@@ -17,12 +17,12 @@ type ReaderUnmarshaler interface {
 
 var defaultTimeout = 5 * time.Second
 
-type Connection struct {
+type Client struct {
 	conn  net.Conn
 	Peers types.PublicPeers
 }
 
-func NewConnection(ctx context.Context, nodeIP, nodePort string) (*Connection, error) {
+func NewClient(ctx context.Context, nodeIP, nodePort string) (*Client, error) {
 	timeout := defaultTimeout
 	// Use the context deadline to calculate the timeout for net.DialTimeout
 	deadline, ok := ctx.Deadline()
@@ -35,7 +35,7 @@ func NewConnection(ctx context.Context, nodeIP, nodePort string) (*Connection, e
 		return nil, err
 	}
 
-	c := Connection{conn: conn}
+	c := Client{conn: conn}
 
 	c.Peers, err = c.GetPeers(ctx)
 	if err != nil {
@@ -45,7 +45,20 @@ func NewConnection(ctx context.Context, nodeIP, nodePort string) (*Connection, e
 	return &c, nil
 }
 
-func (qc *Connection) GetPeers(ctx context.Context) (types.PublicPeers, error) {
+func NewClientWithConn(ctx context.Context, conn net.Conn) (*Client, error) {
+	c := Client{conn: conn}
+
+	peers, err := c.GetPeers(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "getting Peers")
+	}
+
+	c.Peers = peers
+
+	return &c, nil
+}
+
+func (qc *Client) GetPeers(ctx context.Context) (types.PublicPeers, error) {
 	var result types.PublicPeers
 	err := qc.sendRequest(ctx, types.CurrentTickInfoRequest, nil, &result)
 	if err != nil {
@@ -55,7 +68,7 @@ func (qc *Connection) GetPeers(ctx context.Context) (types.PublicPeers, error) {
 	return result, nil
 }
 
-func (qc *Connection) GetIdentity(ctx context.Context, id string) (types.AddressInfo, error) {
+func (qc *Client) GetIdentity(ctx context.Context, id string) (types.AddressInfo, error) {
 	identity := types.Identity(id)
 	pubKey, err := identity.ToPubKey(false)
 	if err != nil {
@@ -71,7 +84,7 @@ func (qc *Connection) GetIdentity(ctx context.Context, id string) (types.Address
 	return result, nil
 }
 
-func (qc *Connection) GetTickInfo(ctx context.Context) (types.TickInfo, error) {
+func (qc *Client) GetTickInfo(ctx context.Context) (types.TickInfo, error) {
 	var result types.TickInfo
 
 	err := qc.sendRequest(ctx, types.CurrentTickInfoRequest, nil, &result)
@@ -82,7 +95,7 @@ func (qc *Connection) GetTickInfo(ctx context.Context) (types.TickInfo, error) {
 	return result, nil
 }
 
-func (qc *Connection) GetTxStatus(ctx context.Context, tick uint32, digest [32]byte, sig [64]byte) (types.TransactionStatus, error) {
+func (qc *Client) GetTxStatus(ctx context.Context, tick uint32, digest [32]byte, sig [64]byte) (types.TransactionStatus, error) {
 	request := struct {
 		Tick      uint32
 		Digest    [32]byte
@@ -103,7 +116,7 @@ func (qc *Connection) GetTxStatus(ctx context.Context, tick uint32, digest [32]b
 	return result, nil
 }
 
-func (qc *Connection) GetTickData(ctx context.Context, tickNumber uint32) (types.TickData, error) {
+func (qc *Client) GetTickData(ctx context.Context, tickNumber uint32) (types.TickData, error) {
 	tickInfo, err := qc.GetTickInfo(ctx)
 	if err != nil {
 		return types.TickData{}, errors.Wrap(err, "getting tick info")
@@ -124,7 +137,7 @@ func (qc *Connection) GetTickData(ctx context.Context, tickNumber uint32) (types
 	return result, nil
 }
 
-func (qc *Connection) GetTickTransactions(ctx context.Context, tickNumber uint32) (types.Transactions, error) {
+func (qc *Client) GetTickTransactions(ctx context.Context, tickNumber uint32) (types.Transactions, error) {
 	tickData, err := qc.GetTickData(ctx, tickNumber)
 	var nrTx int
 	for _, digest := range tickData.TransactionDigests {
@@ -159,7 +172,7 @@ func (qc *Connection) GetTickTransactions(ctx context.Context, tickNumber uint32
 	return result, nil
 }
 
-func (qc *Connection) SendRawTransaction(ctx context.Context, rawTx []byte) error {
+func (qc *Client) SendRawTransaction(ctx context.Context, rawTx []byte) error {
 	err := qc.sendRequest(ctx, types.BroadcastTransaction, rawTx, nil)
 	if err != nil {
 		return errors.Wrap(err, "sending req")
@@ -168,7 +181,7 @@ func (qc *Connection) SendRawTransaction(ctx context.Context, rawTx []byte) erro
 	return nil
 }
 
-func (qc *Connection) GetQuorumVotes(ctx context.Context, tickNumber uint32) (types.QuorumVotes, error) {
+func (qc *Client) GetQuorumVotes(ctx context.Context, tickNumber uint32) (types.QuorumVotes, error) {
 	tickInfo, err := qc.GetTickInfo(ctx)
 	if err != nil {
 		return types.QuorumVotes{}, errors.Wrap(err, "getting tick info")
@@ -192,7 +205,7 @@ func (qc *Connection) GetQuorumVotes(ctx context.Context, tickNumber uint32) (ty
 	return result, nil
 }
 
-func (qc *Connection) GetComputors(ctx context.Context) (types.Computors, error) {
+func (qc *Client) GetComputors(ctx context.Context) (types.Computors, error) {
 	var result types.Computors
 	err := qc.sendRequest(ctx, types.ComputorsRequest, nil, &result)
 	if err != nil {
@@ -202,7 +215,7 @@ func (qc *Connection) GetComputors(ctx context.Context) (types.Computors, error)
 	return result, nil
 }
 
-func (qc *Connection) sendRequest(ctx context.Context, requestType uint8, requestData interface{}, dest ReaderUnmarshaler) error {
+func (qc *Client) sendRequest(ctx context.Context, requestType uint8, requestData interface{}, dest ReaderUnmarshaler) error {
 	packet, err := serializeRequest(ctx, requestType, requestData)
 	if err != nil {
 		return errors.Wrap(err, "serializing request")
@@ -225,7 +238,7 @@ func (qc *Connection) sendRequest(ctx context.Context, requestType uint8, reques
 	return nil
 }
 
-func (qc *Connection) writePacketToConn(ctx context.Context, packet []byte) error {
+func (qc *Client) writePacketToConn(ctx context.Context, packet []byte) error {
 	if packet == nil {
 		return nil
 	}
@@ -250,7 +263,7 @@ func (qc *Connection) writePacketToConn(ctx context.Context, packet []byte) erro
 	return nil
 }
 
-func (qc *Connection) readPacketIntoDest(ctx context.Context, dest ReaderUnmarshaler) error {
+func (qc *Client) readPacketIntoDest(ctx context.Context, dest ReaderUnmarshaler) error {
 	if dest == nil {
 		return nil
 	}
@@ -277,7 +290,7 @@ func (qc *Connection) readPacketIntoDest(ctx context.Context, dest ReaderUnmarsh
 }
 
 // Close closes the connection
-func (qc *Connection) Close() error {
+func (qc *Client) Close() error {
 	return qc.conn.Close()
 }
 
