@@ -46,16 +46,7 @@ func NewClient(ctx context.Context, nodeIP, nodePort string) (*Client, error) {
 }
 
 func NewClientWithConn(ctx context.Context, conn net.Conn) (*Client, error) {
-	c := Client{conn: conn}
-
-	peers, err := c.GetPeers(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "getting Peers")
-	}
-
-	c.Peers = peers
-
-	return &c, nil
+	return &Client{conn: conn}, nil
 }
 
 func (qc *Client) GetPeers(ctx context.Context) (types.PublicPeers, error) {
