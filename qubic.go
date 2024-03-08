@@ -51,7 +51,7 @@ func NewClientWithConn(ctx context.Context, conn net.Conn) (*Client, error) {
 
 func (qc *Client) GetPeers(ctx context.Context) (types.PublicPeers, error) {
 	var result types.PublicPeers
-	err := qc.sendRequest(ctx, types.CurrentTickInfoRequest, nil, &result)
+	err := qc.sendRequest(ctx, types.ExchangePublicPeers, nil, &result)
 	if err != nil {
 		return types.PublicPeers{}, errors.Wrap(err, "sending req to node")
 	}
