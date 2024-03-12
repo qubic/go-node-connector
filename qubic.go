@@ -211,6 +211,7 @@ func (qc *Client) sendRequest(ctx context.Context, requestType uint8, requestDat
 	if err != nil {
 		return errors.Wrap(err, "serializing request")
 	}
+
 	err = qc.writePacketToConn(ctx, packet)
 	if err != nil {
 		return errors.Wrap(err, "sending packet to qubic conn")
