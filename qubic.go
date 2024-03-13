@@ -37,7 +37,7 @@ func NewClient(ctx context.Context, nodeIP, nodePort string) (*Client, error) {
 
 	c := Client{conn: conn}
 
-	c.Peers, err = c.GetPeers(ctx)
+	c.Peers, err = c.getPeers(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "getting Peers")
 	}
@@ -49,7 +49,7 @@ func NewClientWithConn(ctx context.Context, conn net.Conn) (*Client, error) {
 	return &Client{conn: conn}, nil
 }
 
-func (qc *Client) GetPeers(ctx context.Context) (types.PublicPeers, error) {
+func (qc *Client) getPeers(ctx context.Context) (types.PublicPeers, error) {
 	var result types.PublicPeers
 	err := qc.sendRequest(ctx, types.CurrentTickInfoRequest, nil, &result)
 	if err != nil {
