@@ -17,7 +17,7 @@ type Wallet struct {
 	Identity Identity
 }
 
-func New(seed string) (Wallet, error) {
+func NewWallet(seed string) (Wallet, error) {
 	privKey, err := getPrivateKey(seed)
 	if err != nil {
 		return Wallet{}, errors.Wrap(err, "getting privKey")

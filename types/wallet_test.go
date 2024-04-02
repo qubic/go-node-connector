@@ -1,3 +1,4 @@
+//go:build (linux || darwin) && amd64
 // +build linux darwin
 // +build amd64
 
@@ -58,7 +59,7 @@ func TestCreateWallet(t *testing.T) {
 		Identity: "QJRRSSKMJRDKUDTYVNYGAMQPULKAMILQQYOWBEXUDEUWQUMNGDHQYLOAJMEB",
 	}
 
-	got, err := New(testSeed)
+	got, err := NewWallet(testSeed)
 	if err != nil {
 		t.Fatalf("Got err when creating wallet. err: %s", err.Error())
 	}
@@ -87,4 +88,3 @@ func TestDecodePubKey(t *testing.T) {
 		t.Fatalf("pubkey not on curve")
 	}
 }
-
