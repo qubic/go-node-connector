@@ -3,12 +3,13 @@ package types
 import (
 	"bytes"
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
 func TestTransaction_MarshallUnmarshall(t *testing.T) {
 	initialTx := Transaction{
-		SourcePublicKey:	  [32]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		SourcePublicKey:      [32]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 		DestinationPublicKey: [32]byte{11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
 		Amount:               100,
 		Tick:                 200,
@@ -32,4 +33,11 @@ func TestTransaction_MarshallUnmarshall(t *testing.T) {
 	if cmp.Diff(initialTx, unmarshalledTx) != "" {
 		t.Fatalf("Mismatched return value. Expected: %v, got: %v", initialTx, unmarshalledTx)
 	}
+}
+
+func TestSendManyTransferPayload_Size(t *testing.T) {
+	var payload SendManyTransferPayload
+	b, err := payload.MarshallBinary()
+	require.NoError(t, err, "binary marshalling payload")
+	require.True(t, len(b) == QutilSendManyInputSize)
 }

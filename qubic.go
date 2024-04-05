@@ -3,7 +3,9 @@ package qubic
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/binary"
+	"fmt"
 	"github.com/pkg/errors"
 	"github.com/qubic/go-node-connector/types"
 	"io"
@@ -212,6 +214,8 @@ func (qc *Client) sendRequest(ctx context.Context, requestType uint8, requestDat
 		return errors.Wrap(err, "serializing request")
 	}
 
+	fmt.Printf("req type: %d packet: %s", requestType, base64.StdEncoding.EncodeToString(packet))
+
 	err = qc.writePacketToConn(ctx, packet)
 	if err != nil {
 		return errors.Wrap(err, "sending packet to qubic conn")
@@ -313,7 +317,12 @@ func serializeRequest(ctx context.Context, requestType uint8, requestData interf
 	packetSize := uint32(packetHeaderSize + reqDataSize)
 
 	header.SetSize(packetSize)
-	header.RandomizeDejaVu()
+	if requestType == types.BroadcastTransaction {
+		header.ZeroDejaVu()
+	} else {
+		header.RandomizeDejaVu()
+	}
+
 	header.Type = requestType
 
 	serializedHeaderData, err := serializeBinary(header)

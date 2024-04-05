@@ -9,10 +9,13 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/qubic/cgo-schnorrq v1.0.0
 	github.com/silenceper/pool v1.0.0
+	github.com/stretchr/testify v1.2.2
 )
 
 require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.4.2 // indirect
 	golang.org/x/sys v0.3.0 // indirect
 )
