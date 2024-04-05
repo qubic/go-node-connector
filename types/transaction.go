@@ -2,6 +2,7 @@ package types
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/binary"
 	"github.com/cloudflare/circl/xof/k12"
 	"github.com/pkg/errors"
@@ -155,6 +156,15 @@ func (tx *Transaction) Digest() ([32]byte, error) {
 	}
 
 	return digest, nil
+}
+
+func (tx *Transaction) EncodeToBase64() (string, error) {
+	txPacket, err := tx.MarshallBinary()
+	if err != nil {
+		return "", errors.Wrap(err, "binary marshalling")
+	}
+
+	return base64.StdEncoding.EncodeToString(txPacket[:]), nil
 }
 
 type Transactions []Transaction
