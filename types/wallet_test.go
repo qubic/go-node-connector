@@ -17,7 +17,7 @@ const testSeed = "lmujdbtiimznvyamoyjumfeiglauqfzsznisydmqrdyuwqydjpjixat"
 func TestGetSubseed(t *testing.T) {
 	expectedSubseedBytes := [32]byte{244, 124, 158, 118, 114, 22, 0, 127, 168, 254, 156, 41, 77, 119, 59, 224, 162, 60, 9, 187, 43, 141, 1, 189, 213, 224, 195, 24, 35, 144, 238, 58}
 
-	got, err := getSubSeed(testSeed)
+	got, err := GetSubSeed(testSeed)
 	if err != nil {
 		t.Fatalf("Got err when getting subseed. err: %s", err.Error())
 	}

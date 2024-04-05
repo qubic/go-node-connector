@@ -19,6 +19,41 @@ type Transaction struct {
 	Signature            [64]byte
 }
 
+func NewSimpleTransferTransaction(sourceID, destinationID string, amount int64, targetTick uint32) (Transaction, error) {
+	srcID := Identity(sourceID)
+	destID := Identity(destinationID)
+	srcPubKey, err := srcID.ToPubKey(false)
+	if err != nil {
+		return Transaction{}, errors.Wrap(err, "converting src id string to pubkey")
+	}
+	destPubKey, err := destID.ToPubKey(false)
+	if err != nil {
+		return Transaction{}, errors.Wrap(err, "converting dest id string to pubkey")
+	}
+
+	return Transaction{
+		SourcePublicKey:      srcPubKey,
+		DestinationPublicKey: destPubKey,
+		Amount:               5,
+		Tick:                 targetTick,
+	}, nil
+}
+
+func (tx *Transaction) GetUnsignedDigest() ([32]byte, error) {
+	serialized, err := tx.MarshallBinary()
+	if err != nil {
+		return [32]byte{}, errors.Wrap(err, "marshalling tx data")
+	}
+
+	// create digest with data without signature
+	digest, err := k12Hash(serialized[:len(serialized)-64])
+	if err != nil {
+		return [32]byte{}, errors.Wrap(err, "hashing tx data")
+	}
+
+	return digest, nil
+}
+
 func (tx *Transaction) MarshallBinary() ([]byte, error) {
 	var buff bytes.Buffer
 	_, err := buff.Write(tx.SourcePublicKey[:])

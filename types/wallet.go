@@ -42,7 +42,7 @@ func NewWallet(seed string) (Wallet, error) {
 }
 
 func getPrivateKey(seed string) ([32]byte, error) {
-	subseed, err := getSubSeed(seed)
+	subseed, err := GetSubSeed(seed)
 	if err != nil {
 		return [32]byte{}, errors.Wrap(err, "getting subseed")
 	}
@@ -111,7 +111,7 @@ func encode(p fourq.Point) ([32]byte, error) {
 	return pEncoded, nil
 }
 
-func getSubSeed(seed string) ([32]byte, error) {
+func GetSubSeed(seed string) ([32]byte, error) {
 	if len(seed) != seedLength {
 		return [32]byte{}, errors.Errorf("Invalid seed length. Expected %d, got: %d", seedLength, len(seed))
 	}
