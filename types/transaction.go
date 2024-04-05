@@ -35,8 +35,10 @@ func NewSimpleTransferTransaction(sourceID, destinationID string, amount int64, 
 	return Transaction{
 		SourcePublicKey:      srcPubKey,
 		DestinationPublicKey: destPubKey,
-		Amount:               5,
+		Amount:               amount,
 		Tick:                 targetTick,
+		InputType:            0,
+		InputSize:            0,
 	}, nil
 }
 
@@ -156,6 +158,21 @@ func (tx *Transaction) Digest() ([32]byte, error) {
 	}
 
 	return digest, nil
+}
+
+func (tx *Transaction) ID() (string, error) {
+	digest, err := tx.Digest()
+	if err != nil {
+		return "", errors.Wrap(err, "getting digest")
+	}
+
+	var id Identity
+	id, err = id.FromPubKey(digest, true)
+	if err != nil {
+		return "", errors.Wrap(err, "getting id from pubkey")
+	}
+
+	return id.String(), nil
 }
 
 func (tx *Transaction) EncodeToBase64() (string, error) {
