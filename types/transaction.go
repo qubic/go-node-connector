@@ -77,8 +77,9 @@ func (smp *SendManyTransferPayload) GetTransfers() ([]SendManyTransfer, error) {
 	return transfers, nil
 }
 
+// GetTotalAmount returns total amount of transfers + SC fee
 func (smp *SendManyTransferPayload) GetTotalAmount() int64 {
-	return smp.totalAmount
+	return smp.totalAmount + QutilSendManyFee
 }
 
 func (smp *SendManyTransferPayload) MarshallBinary() ([]byte, error) {
