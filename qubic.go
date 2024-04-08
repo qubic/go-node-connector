@@ -94,7 +94,6 @@ func (qc *Client) GetTxStatus(ctx context.Context, tick uint32) (types.Transacti
 	}
 
 	var result types.TransactionStatus
-
 	err := qc.sendRequest(ctx, types.TxStatusRequest, request, &result)
 	if err != nil {
 		return types.TransactionStatus{}, errors.Wrap(err, "sending generic req")
