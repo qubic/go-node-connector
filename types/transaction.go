@@ -113,17 +113,6 @@ func (smp *SendManyTransferPayload) UnmarshallBinary(b []byte) error {
 	return nil
 }
 
-type Transaction struct {
-	SourcePublicKey      [32]byte
-	DestinationPublicKey [32]byte
-	Amount               int64
-	Tick                 uint32
-	InputType            uint16
-	InputSize            uint16
-	Input                []byte
-	Signature            [64]byte
-}
-
 func NewSimpleTransferTransaction(sourceID, destinationID string, amount int64, targetTick uint32) (Transaction, error) {
 	srcID := Identity(sourceID)
 	destID := Identity(destinationID)
@@ -173,6 +162,17 @@ func NewSendManyTransferTransaction(sourceID string, targetTick uint32, payload 
 		InputSize:            QutilSendManyInputSize,
 		Input:                input,
 	}, nil
+}
+
+type Transaction struct {
+	SourcePublicKey      [32]byte
+	DestinationPublicKey [32]byte
+	Amount               int64
+	Tick                 uint32
+	InputType            uint16
+	InputSize            uint16
+	Input                []byte
+	Signature            [64]byte
 }
 
 func (tx *Transaction) GetUnsignedDigest() ([32]byte, error) {
@@ -349,13 +349,11 @@ func (txs *Transactions) UnmarshallFromReader(r io.Reader) error {
 }
 
 type TransactionStatus struct {
-	CurrentTickOfNode uint32
-	TickOfTx          uint32
-	MoneyFlew         bool
-	Executed          bool
-	NotFound          bool
-	Padding           [5]byte
-	Digest            [32]byte
+	CurrentTickOfNode  uint32
+	Tick               uint32
+	TxCount            uint32
+	MoneyFlew          [(NumberOfTransactionsPerTick + 7) / 8]byte
+	TransactionDigests [][32]byte
 }
 
 func (ts *TransactionStatus) UnmarshallFromReader(r io.Reader) error {
@@ -370,9 +368,30 @@ func (ts *TransactionStatus) UnmarshallFromReader(r io.Reader) error {
 		return errors.Errorf("Invalid header type, expected %d, found %d", TxStatusResponse, header.Type)
 	}
 
-	err = binary.Read(r, binary.LittleEndian, ts)
+	err = binary.Read(r, binary.LittleEndian, &ts.CurrentTickOfNode)
 	if err != nil {
-		return errors.Wrap(err, "reading tx status data from reader")
+		return errors.Wrap(err, "reading current tick of node")
+	}
+
+	err = binary.Read(r, binary.LittleEndian, &ts.Tick)
+	if err != nil {
+		return errors.Wrap(err, "reading tick")
+	}
+
+	err = binary.Read(r, binary.LittleEndian, &ts.TxCount)
+	if err != nil {
+		return errors.Wrap(err, "reading tx count")
+	}
+
+	err = binary.Read(r, binary.LittleEndian, &ts.MoneyFlew)
+	if err != nil {
+		return errors.Wrap(err, "reading reading money flew")
+	}
+
+	ts.TransactionDigests = make([][32]byte, ts.TxCount)
+	err = binary.Read(r, binary.LittleEndian, &ts.TransactionDigests)
+	if err != nil {
+		return errors.Wrap(err, "reading tx digests")
 	}
 
 	return nil

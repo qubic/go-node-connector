@@ -3,9 +3,7 @@ package qubic
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/binary"
-	"fmt"
 	"github.com/pkg/errors"
 	"github.com/qubic/go-node-connector/types"
 	"io"
@@ -88,15 +86,11 @@ func (qc *Client) GetTickInfo(ctx context.Context) (types.TickInfo, error) {
 	return result, nil
 }
 
-func (qc *Client) GetTxStatus(ctx context.Context, tick uint32, digest [32]byte, sig [64]byte) (types.TransactionStatus, error) {
+func (qc *Client) GetTxStatus(ctx context.Context, tick uint32) (types.TransactionStatus, error) {
 	request := struct {
-		Tick      uint32
-		Digest    [32]byte
-		Signature [64]byte
+		Tick uint32
 	}{
-		Tick:      tick,
-		Digest:    digest,
-		Signature: sig,
+		Tick: tick,
 	}
 
 	var result types.TransactionStatus
@@ -211,14 +205,12 @@ func (qc *Client) GetComputors(ctx context.Context) (types.Computors, error) {
 func (qc *Client) sendRequest(ctx context.Context, requestType uint8, requestData interface{}, dest ReaderUnmarshaler) error {
 	packet, err := serializeRequest(ctx, requestType, requestData)
 	if err != nil {
-		return errors.Wrap(err, "serializing request")
+		return errors.Wrapf(err, "serializing request for req type %d", requestType)
 	}
-
-	fmt.Printf("req type: %d packet: %s", requestType, base64.StdEncoding.EncodeToString(packet))
 
 	err = qc.writePacketToConn(ctx, packet)
 	if err != nil {
-		return errors.Wrap(err, "sending packet to qubic conn")
+		return errors.Wrapf(err, "sending packet to qubic conn for req type %d", requestType)
 	}
 
 	// if dest is nil then we don't care about the response
@@ -228,7 +220,7 @@ func (qc *Client) sendRequest(ctx context.Context, requestType uint8, requestDat
 
 	err = qc.readPacketIntoDest(ctx, dest)
 	if err != nil {
-		return errors.Wrap(err, "reading response")
+		return errors.Wrapf(err, "reading response for req type %d", requestType)
 	}
 
 	return nil
