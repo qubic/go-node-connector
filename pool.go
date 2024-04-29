@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/qubic/go-node-connector/types"
 	"github.com/silenceper/pool"
 	"io"
 	"math/rand"
@@ -103,10 +104,18 @@ func (pcf *poolConnectionFactory) Connect() (interface{}, error) {
 
 func (pcf *poolConnectionFactory) Close(v interface{}) error { return v.(*Client).Close() }
 
-type response struct {
-	Peers       []string `json:"peers"`
-	Length      int      `json:"length"`
-	LastUpdated int64    `json:"last_updated"`
+type statusResponse struct {
+	MaxTick          uint32         `json:"max_tick"`
+	LastUpdate       int64          `json:"last_update"`
+	ReliableNodes    []nodeResponse `json:"reliable_nodes"`
+	MostReliableNode nodeResponse   `json:"most_reliable_node"`
+}
+
+type nodeResponse struct {
+	Address    string            `json:"address"`
+	Peers      types.PublicPeers `json:"peers"`
+	LastTick   uint32            `json:"last_tick"`
+	LastUpdate int64             `json:"last_update"`
 }
 
 func (pcf *poolConnectionFactory) getNewRandomPeer(ctx context.Context) (string, error) {
@@ -120,7 +129,7 @@ func (pcf *poolConnectionFactory) getNewRandomPeer(ctx context.Context) (string,
 		return "", errors.Wrap(err, "getting peers from node fetcher")
 	}
 
-	var resp response
+	var resp statusResponse
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return "", errors.Wrap(err, "reading response body")
@@ -131,9 +140,9 @@ func (pcf *poolConnectionFactory) getNewRandomPeer(ctx context.Context) (string,
 		return "", errors.Wrap(err, "unmarshalling response")
 	}
 
-	peer := resp.Peers[rand.Intn(len(resp.Peers))]
+	peer := resp.ReliableNodes[rand.Intn(len(resp.ReliableNodes))]
 
-	fmt.Printf("Got %d new peers. Selected random %s\n", len(resp.Peers), peer)
+	fmt.Printf("Got %d new peers. Selected random %s\n", len(resp.ReliableNodes), peer.Address)
 
-	return peer, nil
+	return peer.Address, nil
 }
