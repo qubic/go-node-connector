@@ -351,6 +351,17 @@ func (txs *Transactions) UnmarshallFromReader(r io.Reader) error {
 type TransactionStatus struct {
 	CurrentTickOfNode  uint32
 	Tick               uint32
+	TransactionsStatus []IndividualTransactionStatus
+}
+
+type IndividualTransactionStatus struct {
+	TxID      string
+	MoneyFlew bool
+}
+
+type transactionStatusResponse struct {
+	CurrentTickOfNode  uint32
+	Tick               uint32
 	TxCount            uint32
 	MoneyFlew          [(NumberOfTransactionsPerTick + 7) / 8]byte
 	TransactionDigests [][32]byte
@@ -368,33 +379,80 @@ func (ts *TransactionStatus) UnmarshallFromReader(r io.Reader) error {
 		return errors.Errorf("Invalid header type, expected %d, found %d", TxStatusResponse, header.Type)
 	}
 
-	err = binary.Read(r, binary.LittleEndian, &ts.CurrentTickOfNode)
+	var response transactionStatusResponse
+
+	err = binary.Read(r, binary.LittleEndian, &response.CurrentTickOfNode)
 	if err != nil {
 		return errors.Wrap(err, "reading current tick of node")
 	}
 
-	err = binary.Read(r, binary.LittleEndian, &ts.Tick)
+	err = binary.Read(r, binary.LittleEndian, &response.Tick)
 	if err != nil {
 		return errors.Wrap(err, "reading tick")
 	}
 
-	err = binary.Read(r, binary.LittleEndian, &ts.TxCount)
+	err = binary.Read(r, binary.LittleEndian, &response.TxCount)
 	if err != nil {
 		return errors.Wrap(err, "reading tx count")
 	}
 
-	err = binary.Read(r, binary.LittleEndian, &ts.MoneyFlew)
+	err = binary.Read(r, binary.LittleEndian, &response.MoneyFlew)
 	if err != nil {
 		return errors.Wrap(err, "reading reading money flew")
 	}
 
-	ts.TransactionDigests = make([][32]byte, ts.TxCount)
-	err = binary.Read(r, binary.LittleEndian, &ts.TransactionDigests)
+	response.TransactionDigests = make([][32]byte, response.TxCount)
+	err = binary.Read(r, binary.LittleEndian, &response.TransactionDigests)
 	if err != nil {
 		return errors.Wrap(err, "reading tx digests")
 	}
 
 	return nil
+}
+
+func (ts *TransactionStatus) convertResponseToModel(response transactionStatusResponse) error {
+	transactionsStatus := make([]IndividualTransactionStatus, 0, response.TxCount)
+
+	for index, txDigest := range response.TransactionDigests {
+		var id Identity
+		id, err := id.FromPubKey(txDigest, true)
+		if err != nil {
+			return errors.Wrap(err, "converting digest to id")
+		}
+		moneyFlew := getMoneyFlewFromBits(response.MoneyFlew, index)
+
+		txStatus := IndividualTransactionStatus{
+			TxID:      id.String(),
+			MoneyFlew: moneyFlew,
+		}
+
+		transactionsStatus = append(transactionsStatus, txStatus)
+	}
+
+	*ts = TransactionStatus{
+		CurrentTickOfNode:  response.CurrentTickOfNode,
+		Tick:               response.Tick,
+		TransactionsStatus: transactionsStatus,
+	}
+
+	return nil
+}
+
+func getMoneyFlewFromBits(input [(NumberOfTransactionsPerTick + 7) / 8]byte, digestIndex int) bool {
+	pos := digestIndex / 8
+	bitIndex := digestIndex % 8
+
+	return getNthBit(input[pos], bitIndex)
+}
+
+func getNthBit(input byte, bitIndex int) bool {
+	// Shift the input byte to the right by the bitIndex positions
+	// This isolates the bit at the bitIndex position at the least significant bit position
+	shifted := input >> bitIndex
+
+	// Extract the least significant bit using a bitwise AND operation with 1
+	// If the least significant bit is 1, the result will be 1; otherwise, it will be 0
+	return shifted&1 == 1
 }
 
 func k12Hash(data []byte) ([32]byte, error) {
