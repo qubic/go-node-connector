@@ -4,6 +4,12 @@ import "math/rand"
 
 // request and response types
 const (
+	IssuedAssetsRequest     = 36
+	IssuedAssetsResponse    = 37
+	OwnedAssetsRequest      = 38
+	OwnedAssetsResponse     = 39
+	PossessedAssetsRequest  = 40
+	PossessedAssetsResponse = 41
 	CurrentTickInfoRequest  = 27
 	CurrentTickInfoResponse = 28
 	BroadcastFutureTickData = 8
