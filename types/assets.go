@@ -2,6 +2,7 @@ package types
 
 import (
 	"encoding/binary"
+	"fmt"
 	"github.com/pkg/errors"
 	"io"
 )
@@ -87,7 +88,6 @@ type PossessedAssetData struct {
 	IssuanceIndex         uint32
 	NumberOfUnits         int64
 	OwnedAsset            OwnedAssetData
-	IssuedAsset           IssuedAssetData
 }
 
 type PossessedAsset struct {
@@ -104,6 +104,8 @@ func (pa *PossessedAssets) UnmarshallFromReader(r io.Reader) error {
 		if err != nil {
 			return errors.Wrap(err, "reading header")
 		}
+
+		fmt.Printf("HEADER: %d | %d\n", header.Type, header.GetSize())
 
 		if header.Type == EndResponse {
 			break
@@ -171,11 +173,6 @@ func (pd *PossessedAssetData) UnmarshallBinary(r io.Reader) error {
 	err = pd.OwnedAsset.UnmarshallBinary(r)
 	if err != nil {
 		return errors.Wrap(err, "reading owned asset")
-	}
-
-	err = pd.IssuedAsset.UnmarshallBinary(r)
-	if err != nil {
-		return errors.Wrap(err, "reading issued asset")
 	}
 
 	return nil
