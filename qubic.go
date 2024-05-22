@@ -59,6 +59,22 @@ func (qc *Client) getPeers(ctx context.Context) (types.PublicPeers, error) {
 	return result, nil
 }
 
+func (qc *Client) GetOwnedAssets(ctx context.Context, id string) (types.OwnedAssets, error) {
+
+	identity := types.Identity(id)
+	pubKey, err := identity.ToPubKey(false)
+	if err != nil {
+		return types.OwnedAssets{}, errors.Wrap(err, "converting identity to public key")
+	}
+	var result types.OwnedAssets
+	err = qc.sendRequest(ctx, types.OwnedAssetsRequest, pubKey, &result)
+	if err != nil {
+		return types.OwnedAssets{}, errors.Wrap(err, "sending req to node")
+	}
+
+	return result, nil
+}
+
 func (qc *Client) GetIdentity(ctx context.Context, id string) (types.AddressInfo, error) {
 	identity := types.Identity(id)
 	pubKey, err := identity.ToPubKey(false)
