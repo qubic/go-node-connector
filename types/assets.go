@@ -2,7 +2,6 @@ package types
 
 import (
 	"encoding/binary"
-	"fmt"
 	"github.com/pkg/errors"
 	"io"
 )
@@ -104,8 +103,6 @@ func (pa *PossessedAssets) UnmarshallFromReader(r io.Reader) error {
 		if err != nil {
 			return errors.Wrap(err, "reading header")
 		}
-
-		fmt.Printf("HEADER: %d | %d\n", header.Type, header.GetSize())
 
 		if header.Type == EndResponse {
 			break
