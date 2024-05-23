@@ -48,6 +48,45 @@ type IssuedAsset struct {
 
 type IssuedAssets []IssuedAsset
 
+func (ia *IssuedAssets) UnmarshallFromReader(r io.Reader) error {
+	for {
+		var header RequestResponseHeader
+		err := binary.Read(r, binary.BigEndian, &header)
+		if err != nil {
+			return errors.Wrap(err, "reading header")
+		}
+
+		if header.Type == EndResponse {
+			break
+		}
+
+		if header.Type != IssuedAssetsResponse {
+			return errors.Errorf("Invalid header type, expected %d, found %d", IssuedAssetsResponse, header.Type)
+		}
+
+		var issuedAssetData IssuedAssetData
+		err = issuedAssetData.UnmarshallBinary(r)
+		if err != nil {
+			return errors.Wrap(err, "unmarshalling issued asset data")
+		}
+
+		var assetInfo AssetInfo
+		err = assetInfo.UnmarshallBinary(r)
+		if err != nil {
+			return errors.Wrap(err, "reading issued asset info")
+		}
+
+		issuedAsset := IssuedAsset{
+			Data: issuedAssetData,
+			Info: assetInfo,
+		}
+
+		*ia = append(*ia, issuedAsset)
+	}
+
+	return nil
+}
+
 func (ad *IssuedAssetData) UnmarshallBinary(r io.Reader) error {
 
 	err := binary.Read(r, binary.LittleEndian, &ad.PublicKey)
@@ -135,39 +174,39 @@ func (pa *PossessedAssets) UnmarshallFromReader(r io.Reader) error {
 	return nil
 }
 
-func (pd *PossessedAssetData) UnmarshallBinary(r io.Reader) error {
+func (ad *PossessedAssetData) UnmarshallBinary(r io.Reader) error {
 
-	err := binary.Read(r, binary.LittleEndian, &pd.PublicKey)
+	err := binary.Read(r, binary.LittleEndian, &ad.PublicKey)
 	if err != nil {
 		return errors.Wrap(err, "reading asset data")
 	}
 
-	err = binary.Read(r, binary.LittleEndian, &pd.Type)
+	err = binary.Read(r, binary.LittleEndian, &ad.Type)
 	if err != nil {
 		return errors.Wrap(err, "reading asset type")
 	}
 
-	err = binary.Read(r, binary.LittleEndian, &pd.Padding)
+	err = binary.Read(r, binary.LittleEndian, &ad.Padding)
 	if err != nil {
 		return errors.Wrap(err, "reading asset padding")
 	}
 
-	err = binary.Read(r, binary.LittleEndian, &pd.ManagingContractIndex)
+	err = binary.Read(r, binary.LittleEndian, &ad.ManagingContractIndex)
 	if err != nil {
 		return errors.Wrap(err, "reading asset managing contract index")
 	}
 
-	err = binary.Read(r, binary.LittleEndian, &pd.IssuanceIndex)
+	err = binary.Read(r, binary.LittleEndian, &ad.IssuanceIndex)
 	if err != nil {
 		return errors.Wrap(err, "reading asset issuance index")
 	}
 
-	err = binary.Read(r, binary.LittleEndian, &pd.NumberOfUnits)
+	err = binary.Read(r, binary.LittleEndian, &ad.NumberOfUnits)
 	if err != nil {
 		return errors.Wrap(err, "reading asset number of units")
 	}
 
-	err = pd.OwnedAsset.UnmarshallBinary(r)
+	err = ad.OwnedAsset.UnmarshallBinary(r)
 	if err != nil {
 		return errors.Wrap(err, "reading owned asset")
 	}
