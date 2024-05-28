@@ -110,6 +110,14 @@ func (smp *SendManyTransferPayload) UnmarshallBinary(b []byte) error {
 		return errors.Wrap(err, "reading amounts from reader")
 	}
 
+	totalAmount := int64(0)
+
+	for _, amount := range smp.amounts {
+		totalAmount += amount
+	}
+
+	smp.totalAmount = totalAmount
+
 	return nil
 }
 
