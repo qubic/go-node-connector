@@ -27,7 +27,11 @@ func (ai *AssetInfo) UnmarshallBinary(r io.Reader) error {
 		return errors.Wrap(err, "reading asset universe index")
 	}
 
-	/* We don't read siblings as it doesn't seem to be implemented on node side yet. */
+	err = binary.Read(r, binary.LittleEndian, &ai.Siblings)
+	if err != nil {
+		return errors.Wrap(err, "reading asset siblings")
+	}
+
 	return nil
 }
 
