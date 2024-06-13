@@ -41,6 +41,40 @@ func NewWallet(seed string) (Wallet, error) {
 	}, nil
 }
 
+func NewDerivedWallet(seed string, index uint64) (Wallet, error) {
+	subseed, err := GetSubSeed(seed)
+	if err != nil {
+		return Wallet{}, errors.Wrap(err, "getting subseed")
+	}
+
+	derivedSubseed, err := GetDerivedSubseed(subseed, index)
+	if err != nil {
+		return Wallet{}, errors.Wrap(err, "getting derived subseed")
+	}
+
+	privKey, err := getPrivateKeyFromSubseed(derivedSubseed)
+	if err != nil {
+		return Wallet{}, errors.Wrap(err, "getting privKey")
+	}
+
+	pubKey, err := getPublicKey(privKey)
+	if err != nil {
+		return Wallet{}, errors.Wrap(err, "getting pubkey")
+	}
+
+	var id Identity
+	id, err = id.FromPubKey(pubKey, false)
+	if err != nil {
+		return Wallet{}, errors.Wrap(err, "getting identity string")
+	}
+
+	return Wallet{
+		PubKey:   pubKey,
+		PrivKey:  privKey,
+		Identity: id,
+	}, nil
+}
+
 func getPrivateKey(seed string) ([32]byte, error) {
 	subseed, err := GetSubSeed(seed)
 	if err != nil {
@@ -49,6 +83,22 @@ func getPrivateKey(seed string) ([32]byte, error) {
 
 	h := k12.NewDraft10([]byte{})
 	_, err = h.Write(subseed[:])
+	if err != nil {
+		return [32]byte{}, errors.Wrap(err, "writing msg to k12")
+	}
+
+	var privKey [32]byte
+	_, err = h.Read(privKey[:])
+	if err != nil {
+		return [32]byte{}, errors.Wrap(err, "reading hash from k12")
+	}
+
+	return privKey, nil
+}
+
+func getPrivateKeyFromSubseed(subseed [32]byte) ([32]byte, error) {
+	h := k12.NewDraft10([]byte{})
+	_, err := h.Write(subseed[:])
 	if err != nil {
 		return [32]byte{}, errors.Wrap(err, "writing msg to k12")
 	}
@@ -134,6 +184,49 @@ func GetSubSeed(seed string) ([32]byte, error) {
 	}
 
 	return subseed, nil
+}
+
+func GetDerivedSubseed(subseed [32]byte, index uint64) ([32]byte, error) {
+	indexBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(indexBytes, index)
+
+	h := k12.NewDraft10([]byte{})
+	_, err := h.Write(subseed[:])
+	if err != nil {
+		return [32]byte{}, errors.Wrap(err, "writing subseed to k12")
+	}
+
+	var subseedHash [32]byte
+	_, err = h.Read(subseedHash[:])
+	if err != nil {
+		return [32]byte{}, errors.Wrap(err, "reading subseed hash")
+	}
+
+	h = k12.NewDraft10([]byte{})
+	_, err = h.Write(indexBytes)
+	if err != nil {
+		return [32]byte{}, errors.Wrap(err, "writing index to k12")
+	}
+
+	var indexHash [32]byte
+	_, err = h.Read(indexHash[:])
+	if err != nil {
+		return [32]byte{}, errors.Wrap(err, "reading index hash")
+	}
+
+	h = k12.NewDraft10([]byte{})
+	_, err = h.Write(append(subseedHash[:], indexHash[:]...))
+	if err != nil {
+		return [32]byte{}, errors.Wrap(err, "writing combined hashes to k12")
+	}
+
+	var derivedSubseed [32]byte
+	_, err = h.Read(derivedSubseed[:])
+	if err != nil {
+		return [32]byte{}, errors.Wrap(err, "reading derived subseed from k12")
+	}
+
+	return derivedSubseed, nil
 }
 
 func GenerateRandomSeed() string {

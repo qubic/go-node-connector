@@ -1,13 +1,9 @@
-//go:build (linux || darwin) && amd64
-// +build linux darwin
-// +build amd64
-
 package types
 
 import (
 	"encoding/hex"
+	"fmt"
 	"github.com/cloudflare/circl/ecc/fourq"
-	fourq2 "github.com/cloudflare/fourq"
 	"github.com/google/go-cmp/cmp"
 	"testing"
 )
@@ -77,14 +73,50 @@ func TestDecodePubKey(t *testing.T) {
 
 	var pubKeyPoint fourq.Point
 	pubKeyPoint.ScalarBaseMult(&privKey)
-
-	pubKey, err := encode(pubKeyPoint)
-	if err != nil {
-		t.Fatalf("err encoding pubkey")
-	}
-
-	ok := fourq2.IsOnCurve(pubKey)
-	if !ok {
+	if !pubKeyPoint.IsOnCurve() {
 		t.Fatalf("pubkey not on curve")
 	}
+
+	var pubKeyBytes [32]byte
+	pubKeyPoint.Marshal(&pubKeyBytes)
+
+	if pubKeyBytes == [32]byte{} {
+		t.Fatalf("pubkey is empty")
+	}
+
+}
+
+func TestGetDerivedSubseed(t *testing.T) {
+	subseed, err := GetSubSeed(testSeed)
+	if err != nil {
+		t.Fatalf("err getting subseed")
+	}
+
+	derivedSubseed, err := GetDerivedSubseed(subseed, 0)
+	if err != nil {
+		t.Fatalf("err getting derived subseed")
+	}
+
+	if derivedSubseed == subseed {
+		t.Fatalf("derived subseed is the same as the original")
+	}
+}
+
+func TestGetDerivedWallet(t *testing.T) {
+	wallet, err := NewWallet(testSeed)
+	if err != nil {
+		t.Fatalf("err getting wallet")
+	}
+
+	derivedWallet, err := NewDerivedWallet(testSeed, 0)
+	if err != nil {
+		t.Fatalf("err getting derived wallet")
+	}
+
+	if wallet.PubKey == derivedWallet.PubKey {
+		t.Fatalf("derived wallet is the same as the original")
+	}
+
+	fmt.Println(wallet.Identity.String())
+	fmt.Println(derivedWallet.Identity.String())
 }
