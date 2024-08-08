@@ -250,8 +250,42 @@ func (qc *Client) GetComputors(ctx context.Context) (types.Computors, error) {
 	return result, nil
 }
 
+func (qc *Client) QuerySmartContract(ctx context.Context, rcf RequestContractFunction, requestData []byte) (types.SmartContractData, error) {
+	var result types.SmartContractData
+	err := qc.sendSmartContractRequest(ctx, rcf, types.ContractFunctionRequest, requestData, &result)
+	if err != nil {
+		return types.SmartContractData{}, errors.Wrap(err, "sending req to node")
+	}
+
+	return result, nil
+}
+
 func (qc *Client) sendRequest(ctx context.Context, requestType uint8, requestData interface{}, dest ReaderUnmarshaler) error {
 	packet, err := serializeRequest(ctx, requestType, requestData)
+	if err != nil {
+		return errors.Wrapf(err, "serializing request for req type %d", requestType)
+	}
+
+	err = qc.writePacketToConn(ctx, packet)
+	if err != nil {
+		return errors.Wrapf(err, "sending packet to qubic conn for req type %d", requestType)
+	}
+
+	// if dest is nil then we don't care about the response
+	if dest == nil {
+		return nil
+	}
+
+	err = qc.readPacketIntoDest(ctx, dest)
+	if err != nil {
+		return errors.Wrapf(err, "reading response for req type %d", requestType)
+	}
+
+	return nil
+}
+
+func (qc *Client) sendSmartContractRequest(ctx context.Context, rcf RequestContractFunction, requestType uint8, requestData []byte, dest ReaderUnmarshaler) error {
+	packet, err := serializesSmartContractRequest(ctx, rcf, requestType, requestData)
 	if err != nil {
 		return errors.Wrapf(err, "serializing request for req type %d", requestType)
 	}
@@ -372,6 +406,44 @@ func serializeRequest(ctx context.Context, requestType uint8, requestData interf
 
 	serializedPacket := make([]byte, 0, packetSize)
 	serializedPacket = append(serializedPacket, serializedHeaderData...)
+	serializedPacket = append(serializedPacket, serializedReqData...)
+
+	return serializedPacket, nil
+}
+
+type RequestContractFunction struct {
+	ContractIndex uint32
+	InputType     uint16
+	InputSize     uint16
+}
+
+func serializesSmartContractRequest(ctx context.Context, rcf RequestContractFunction, requestType uint8, requestData []byte) ([]byte, error) {
+	serializedReqData := requestData
+	serializedReqContractFunction, err := serializeBinary(rcf)
+	if err != nil {
+		return nil, errors.Wrap(err, "serializing req contract function")
+	}
+
+	var header types.RequestResponseHeader
+
+	packetHeaderSize := binary.Size(header)
+	reqDataSize := len(serializedReqData)
+	reqContractFunctionSize := len(serializedReqContractFunction)
+	packetSize := uint32(packetHeaderSize + reqContractFunctionSize + reqDataSize)
+
+	header.RandomizeDejaVu()
+
+	header.Type = requestType
+	header.SetSize(packetSize)
+
+	serializedHeaderData, err := serializeBinary(header)
+	if err != nil {
+		return nil, errors.Wrap(err, "serializing header data")
+	}
+
+	serializedPacket := make([]byte, 0, packetSize)
+	serializedPacket = append(serializedPacket, serializedHeaderData...)
+	serializedPacket = append(serializedPacket, serializedReqContractFunction...)
 	serializedPacket = append(serializedPacket, serializedReqData...)
 
 	return serializedPacket, nil

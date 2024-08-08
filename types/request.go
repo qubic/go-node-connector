@@ -4,28 +4,30 @@ import "math/rand"
 
 // request and response types
 const (
-	IssuedAssetsRequest     = 36
-	IssuedAssetsResponse    = 37
-	OwnedAssetsRequest      = 38
-	OwnedAssetsResponse     = 39
-	PossessedAssetsRequest  = 40
-	PossessedAssetsResponse = 41
-	CurrentTickInfoRequest  = 27
-	CurrentTickInfoResponse = 28
-	BroadcastFutureTickData = 8
-	TickDataRequest         = 16
-	TickTransactionsRequest = 29
-	BroadcastTransaction    = 24
-	TxStatusRequest         = 201
-	TxStatusResponse        = 202
-	EndResponse             = 35
-	BalanceTypeRequest      = 31
-	BalanceTypeResponse     = 32
-	QuorumTickRequest       = 14
-	QuorumTickResponse      = 3
-	ComputorsRequest        = 11
-	BroadcastComputors      = 2
-	ExchangePublicPeers     = 0
+	IssuedAssetsRequest      = 36
+	IssuedAssetsResponse     = 37
+	OwnedAssetsRequest       = 38
+	OwnedAssetsResponse      = 39
+	PossessedAssetsRequest   = 40
+	PossessedAssetsResponse  = 41
+	CurrentTickInfoRequest   = 27
+	CurrentTickInfoResponse  = 28
+	BroadcastFutureTickData  = 8
+	TickDataRequest          = 16
+	TickTransactionsRequest  = 29
+	BroadcastTransaction     = 24
+	TxStatusRequest          = 201
+	TxStatusResponse         = 202
+	EndResponse              = 35
+	BalanceTypeRequest       = 31
+	BalanceTypeResponse      = 32
+	QuorumTickRequest        = 14
+	QuorumTickResponse       = 3
+	ComputorsRequest         = 11
+	BroadcastComputors       = 2
+	ExchangePublicPeers      = 0
+	ContractFunctionRequest  = 42
+	ContractFunctionResponse = 43
 )
 
 type RequestResponseHeader struct {
