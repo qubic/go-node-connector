@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"github.com/cloudflare/circl/xof/k12"
 	"github.com/pkg/errors"
+	"github.com/qubic/go-schnorrq"
 	"io"
 )
 
@@ -323,6 +324,26 @@ func (tx *Transaction) EncodeToBase64() (string, error) {
 	}
 
 	return base64.StdEncoding.EncodeToString(txPacket[:]), nil
+}
+
+func (tx *Transaction) Sign(seed string) error {
+	unsignedDigest, err := tx.GetUnsignedDigest()
+	if err != nil {
+		return errors.Wrap(err, "getting tx unsigned digest")
+	}
+
+	subSeed, err := GetSubSeed(seed)
+	if err != nil {
+		return errors.Wrap(err, "getting subseed")
+	}
+
+	sig, err := schnorrq.Sign(subSeed, tx.SourcePublicKey, unsignedDigest)
+	if err != nil {
+		return errors.Wrap(err, "signing transaction")
+	}
+	tx.Signature = sig
+
+	return nil
 }
 
 type Transactions []Transaction
