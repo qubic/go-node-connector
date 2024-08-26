@@ -44,9 +44,81 @@ func (td *TickData) UnmarshallFromReader(r io.Reader) error {
 		return errors.Errorf("Invalid header type, expected %d, found %d", BroadcastFutureTickData, header.Type)
 	}
 
-	err = binary.Read(r, binary.LittleEndian, td)
+	err = binary.Read(r, binary.LittleEndian, td.ComputorIndex)
 	if err != nil {
-		return errors.Wrap(err, "reading tick data from reader")
+		return errors.Wrap(err, "reading computor index")
+	}
+
+	err = binary.Read(r, binary.LittleEndian, td.Epoch)
+	if err != nil {
+		return errors.Wrap(err, "reading epoch")
+	}
+
+	err = binary.Read(r, binary.LittleEndian, td.Tick)
+	if err != nil {
+		return errors.Wrap(err, "reading tick")
+	}
+
+	err = binary.Read(r, binary.LittleEndian, td.Millisecond)
+	if err != nil {
+		return errors.Wrap(err, "reading millisecond")
+	}
+
+	err = binary.Read(r, binary.LittleEndian, td.Second)
+	if err != nil {
+		return errors.Wrap(err, "reading second")
+	}
+
+	err = binary.Read(r, binary.LittleEndian, td.Minute)
+	if err != nil {
+		return errors.Wrap(err, "reading minute")
+	}
+
+	err = binary.Read(r, binary.LittleEndian, td.Hour)
+	if err != nil {
+		return errors.Wrap(err, "reading hour")
+	}
+
+	err = binary.Read(r, binary.LittleEndian, td.Day)
+	if err != nil {
+		return errors.Wrap(err, "reading day")
+	}
+
+	err = binary.Read(r, binary.LittleEndian, td.Month)
+	if err != nil {
+		return errors.Wrap(err, "reading month")
+	}
+
+	err = binary.Read(r, binary.LittleEndian, td.Year)
+	if err != nil {
+		return errors.Wrap(err, "reading year")
+	}
+
+	if td.Epoch < 124 {
+		err = binary.Read(r, binary.LittleEndian, &td.UnionData)
+		if err != nil {
+			return errors.Wrap(err, "reading union data")
+		}
+	}
+
+	err = binary.Read(r, binary.LittleEndian, &td.Timelock)
+	if err != nil {
+		return errors.Wrap(err, "reading timelock")
+	}
+
+	err = binary.Read(r, binary.LittleEndian, &td.TransactionDigests)
+	if err != nil {
+		return errors.Wrap(err, "reading transaction digests")
+	}
+
+	err = binary.Read(r, binary.LittleEndian, &td.ContractFees)
+	if err != nil {
+		return errors.Wrap(err, "reading contract fees")
+	}
+
+	err = binary.Read(r, binary.LittleEndian, &td.Signature)
+	if err != nil {
+		return errors.Wrap(err, "reading signature")
 	}
 
 	return nil
@@ -66,7 +138,7 @@ type TickInfo struct {
 	Tick                    uint32
 	NumberOfAlignedVotes    uint16
 	NumberOfMisalignedVotes uint16
-	InitialTick uint32
+	InitialTick             uint32
 }
 
 func (ti *TickInfo) UnmarshallFromReader(r io.Reader) error {
@@ -79,7 +151,7 @@ func (ti *TickInfo) UnmarshallFromReader(r io.Reader) error {
 		}
 
 		if header.Type == 0 {
-			ignoredBytes := make([]byte, header.GetSize() - uint32(binary.Size(header)))
+			ignoredBytes := make([]byte, header.GetSize()-uint32(binary.Size(header)))
 			_, err := r.Read(ignoredBytes)
 			if err != nil {
 				return errors.Wrap(err, "reading ignored bytes")
@@ -98,7 +170,6 @@ func (ti *TickInfo) UnmarshallFromReader(r io.Reader) error {
 
 		break
 	}
-
 
 	return nil
 }
