@@ -44,52 +44,52 @@ func (td *TickData) UnmarshallFromReader(r io.Reader) error {
 		return errors.Errorf("Invalid header type, expected %d, found %d", BroadcastFutureTickData, header.Type)
 	}
 
-	err = binary.Read(r, binary.LittleEndian, td.ComputorIndex)
+	err = binary.Read(r, binary.LittleEndian, &td.ComputorIndex)
 	if err != nil {
 		return errors.Wrap(err, "reading computor index")
 	}
 
-	err = binary.Read(r, binary.LittleEndian, td.Epoch)
+	err = binary.Read(r, binary.LittleEndian, &td.Epoch)
 	if err != nil {
 		return errors.Wrap(err, "reading epoch")
 	}
 
-	err = binary.Read(r, binary.LittleEndian, td.Tick)
+	err = binary.Read(r, binary.LittleEndian, &td.Tick)
 	if err != nil {
 		return errors.Wrap(err, "reading tick")
 	}
 
-	err = binary.Read(r, binary.LittleEndian, td.Millisecond)
+	err = binary.Read(r, binary.LittleEndian, &td.Millisecond)
 	if err != nil {
 		return errors.Wrap(err, "reading millisecond")
 	}
 
-	err = binary.Read(r, binary.LittleEndian, td.Second)
+	err = binary.Read(r, binary.LittleEndian, &td.Second)
 	if err != nil {
 		return errors.Wrap(err, "reading second")
 	}
 
-	err = binary.Read(r, binary.LittleEndian, td.Minute)
+	err = binary.Read(r, binary.LittleEndian, &td.Minute)
 	if err != nil {
 		return errors.Wrap(err, "reading minute")
 	}
 
-	err = binary.Read(r, binary.LittleEndian, td.Hour)
+	err = binary.Read(r, binary.LittleEndian, &td.Hour)
 	if err != nil {
 		return errors.Wrap(err, "reading hour")
 	}
 
-	err = binary.Read(r, binary.LittleEndian, td.Day)
+	err = binary.Read(r, binary.LittleEndian, &td.Day)
 	if err != nil {
 		return errors.Wrap(err, "reading day")
 	}
 
-	err = binary.Read(r, binary.LittleEndian, td.Month)
+	err = binary.Read(r, binary.LittleEndian, &td.Month)
 	if err != nil {
 		return errors.Wrap(err, "reading month")
 	}
 
-	err = binary.Read(r, binary.LittleEndian, td.Year)
+	err = binary.Read(r, binary.LittleEndian, &td.Year)
 	if err != nil {
 		return errors.Wrap(err, "reading year")
 	}
