@@ -21,7 +21,6 @@ type TickData struct {
 	Day                uint8
 	Month              uint8
 	Year               uint8
-	UnionData          [256]byte
 	Timelock           [32]byte
 	TransactionDigests [NumberOfTransactionsPerTick][32]byte `json:",omitempty"`
 	ContractFees       [1024]int64                           `json:",omitempty"`
@@ -92,13 +91,6 @@ func (td *TickData) UnmarshallFromReader(r io.Reader) error {
 	err = binary.Read(r, binary.LittleEndian, &td.Year)
 	if err != nil {
 		return errors.Wrap(err, "reading year")
-	}
-
-	if td.Epoch < 124 {
-		err = binary.Read(r, binary.LittleEndian, &td.UnionData)
-		if err != nil {
-			return errors.Wrap(err, "reading union data")
-		}
 	}
 
 	err = binary.Read(r, binary.LittleEndian, &td.Timelock)
