@@ -9,34 +9,18 @@ import (
 )
 
 type LiveServiceClient struct {
-	BaseUrl                      string
-	TransactionBroadcastEndpoint string
-	TickInfoEndpoint             string
-
-	TickBroadcastOffset uint32
+	BaseUrl string
 }
 
-func LiveServiceClientWithDefaults() LiveServiceClient {
+func NewLiveServiceClient(baseUrl string) LiveServiceClient {
 	return LiveServiceClient{
-		BaseUrl:                      "https://rpc.qubic.org",
-		TransactionBroadcastEndpoint: "/v1/broadcast-transaction",
-		TickInfoEndpoint:             "/v1/tick-info",
-		TickBroadcastOffset:          15,
-	}
-}
-
-func NewLiveServiceClient(baseUrl, transactionBroadcastEndpoint, tickInfoEndpoint string, tickBroadcastOffset uint32) LiveServiceClient {
-	return LiveServiceClient{
-		BaseUrl:                      baseUrl,
-		TransactionBroadcastEndpoint: transactionBroadcastEndpoint,
-		TickInfoEndpoint:             tickInfoEndpoint,
-		TickBroadcastOffset:          tickBroadcastOffset,
+		BaseUrl: baseUrl,
 	}
 }
 
 func (lsc *LiveServiceClient) GetTickInfo() (*TickInfoResponse, error) {
 
-	request, err := http.NewRequest(http.MethodGet, lsc.BaseUrl+lsc.TickInfoEndpoint, nil)
+	request, err := http.NewRequest(http.MethodGet, lsc.BaseUrl+"/v1/tick-info", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "creating tick info request")
 	}
@@ -60,17 +44,11 @@ func (lsc *LiveServiceClient) GetTickInfo() (*TickInfoResponse, error) {
 	return &responseBody, nil
 }
 
-func (lsc *LiveServiceClient) GetScheduledTick() (uint32, error) {
-	tickInfo, err := lsc.GetTickInfo()
-	if err != nil {
-		return 0, errors.Wrap(err, "getting current tick info")
-	}
-
-	return tickInfo.TickInfo.Tick + lsc.TickBroadcastOffset, nil
-
-}
-
 func (lsc *LiveServiceClient) BroadcastTransaction(tx Transaction) (*TransactionBroadcastResponse, error) {
+
+	if tx.Signature == [64]byte{} {
+		return nil, errors.New("cannot broadcast unsigned transaction")
+	}
 
 	encodedTransaction, err := tx.EncodeToBase64()
 	if err != nil {
@@ -87,7 +65,7 @@ func (lsc *LiveServiceClient) BroadcastTransaction(tx Transaction) (*Transaction
 		return nil, errors.Wrap(err, "encoding transaction broadcast payload")
 	}
 
-	request, err := http.NewRequest(http.MethodPost, lsc.BaseUrl+lsc.TransactionBroadcastEndpoint, buff)
+	request, err := http.NewRequest(http.MethodPost, lsc.BaseUrl+"/v1/broadcast-transaction", buff)
 	if err != nil {
 		return nil, errors.Wrap(err, "creating transaction broadcast request")
 	}
@@ -111,7 +89,7 @@ func (lsc *LiveServiceClient) BroadcastTransaction(tx Transaction) (*Transaction
 	return &responseBody, nil
 }
 
-func (lsc *LiveServiceClient) handleHttpError(responseBody io.ReadCloser) error {
+func (lsc *LiveServiceClient) handleHttpError(responseBody io.Reader) error {
 
 	data, err := io.ReadAll(responseBody)
 	if err != nil {
@@ -129,6 +107,7 @@ type TransactionBroadcastRequest struct {
 type TransactionBroadcastResponse struct {
 	PeersBroadcasted   uint32 `json:"peersBroadcasted"`
 	EncodedTransaction string `json:"encodedTransaction"`
+	TransactionId      string `json:"transactionId"`
 }
 
 type TickInfoResponse struct {
