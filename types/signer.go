@@ -5,21 +5,19 @@ import (
 	"github.com/qubic/go-schnorrq"
 )
 
-var DefaultSigner = Signer{
-	SignFunc: schnorrq.Sign,
-}
-
 type Signer struct {
-	SignFunc func(subSeed [32]byte, pubKey [32]byte, messageDigest [32]byte) ([64]byte, error)
+	seed string
 }
 
-func NewSigner(signFunc func(subSeed [32]byte, pubKey [32]byte, messageDigest [32]byte) ([64]byte, error)) *Signer {
-	return &Signer{SignFunc: signFunc}
+func NewSigner(seed string) *Signer {
+	return &Signer{
+		seed: seed,
+	}
 }
 
-func (s *Signer) SignTx(tx *Transaction, sourceSeed string) error {
+func (s *Signer) SignTx(tx *Transaction) error {
 
-	subSeed, err := GetSubSeed(sourceSeed)
+	subSeed, err := GetSubSeed(s.seed)
 	if err != nil {
 		return errors.Wrap(err, "getting sub-seed")
 	}
@@ -29,7 +27,7 @@ func (s *Signer) SignTx(tx *Transaction, sourceSeed string) error {
 		return errors.Wrap(err, "getting unsigned transaction digest")
 	}
 
-	signature, err := s.SignFunc(subSeed, tx.SourcePublicKey, unsignedDigest)
+	signature, err := schnorrq.Sign(subSeed, tx.SourcePublicKey, unsignedDigest)
 	if err != nil {
 		return errors.Wrap(err, "creating signature")
 	}
