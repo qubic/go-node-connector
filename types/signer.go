@@ -7,15 +7,30 @@ import (
 
 type Signer struct {
 	seed string
+
+	pubKey [32]byte
 }
 
-func NewSigner(seed string) *Signer {
-	return &Signer{
-		seed: seed,
+func NewSigner(seed string) (*Signer, error) {
+
+	wallet, err := NewWallet(seed)
+	if err != nil {
+		return nil, errors.Wrap(err, "creating wallet")
 	}
+
+	pubKey := wallet.PubKey
+
+	return &Signer{
+		seed:   seed,
+		pubKey: pubKey,
+	}, nil
 }
 
 func (s *Signer) SignTx(tx *Transaction) error {
+
+	if tx.SourcePublicKey != s.pubKey {
+		return errors.New("source public key does not match")
+	}
 
 	subSeed, err := GetSubSeed(s.seed)
 	if err != nil {
