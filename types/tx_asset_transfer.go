@@ -17,7 +17,7 @@ type AssetTransferPayload struct {
 	numberOfUnits        int64
 }
 
-func NewAssetTransferPayload(issuer, newOwnerAndPossessor, assetName string, numberOfUnits int64) (AssetTransferPayload, error) {
+func NewAssetTransferPayload(assetName, issuer, newOwnerAndPossessor string, numberOfUnits int64) (AssetTransferPayload, error) {
 
 	issuerIdentity := Identity(issuer)
 	issuerPubKey, err := issuerIdentity.ToPubKey(false)
@@ -31,8 +31,8 @@ func NewAssetTransferPayload(issuer, newOwnerAndPossessor, assetName string, num
 		return AssetTransferPayload{}, errors.Wrap(err, "failed to obtain new owner public key")
 	}
 
-	if len(assetName) > 8 {
-		return AssetTransferPayload{}, errors.Errorf("asset name '%s' is longer than 8", assetName)
+	if len(assetName) > 7 {
+		return AssetTransferPayload{}, errors.Errorf("asset name '%s' is longer than 7", assetName)
 	}
 
 	var assetNameBytes [8]byte
@@ -98,7 +98,7 @@ func NewAssetTransferTransaction(sourceID string, targetTick uint32, transferFee
 		Amount:               transferFee,
 		Tick:                 targetTick,
 		InputType:            QxTransferInputType,
-		InputSize:            QxTransferInputSize,
+		InputSize:            uint16(len(input)),
 		Input:                input,
 	}, nil
 

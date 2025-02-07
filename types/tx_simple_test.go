@@ -27,7 +27,7 @@ func TestSimpleTransaction(t *testing.T) {
 			}
 
 			signer, _ := NewSigner(data.senderSeed)
-			err = signer.SignTx(&simpleTransaction)
+			simpleTransaction, err = signer.SignTx(simpleTransaction)
 			if err != nil {
 				t.Fatalf("signing simple transaction: %s", err)
 			}

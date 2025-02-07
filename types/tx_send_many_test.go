@@ -47,7 +47,7 @@ func TestSendManyTransaction(t *testing.T) {
 			}
 
 			signer, _ := NewSigner(data.senderSeed)
-			err = signer.SignTx(&sendManyTransaction)
+			sendManyTransaction, err = signer.SignTx(sendManyTransaction)
 			if err != nil {
 				t.Fatalf("signing send many transaction: %s", err)
 			}
