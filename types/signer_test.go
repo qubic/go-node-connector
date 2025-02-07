@@ -52,7 +52,7 @@ func TestSigner_SignTx(t *testing.T) {
 				t.Fatalf("creating signer: %s", err)
 			}
 
-			err = signer.SignTx(&tx)
+			tx, err = signer.SignTx(tx)
 			if err != nil {
 				t.Fatalf("signing tx: %s", err)
 			}

@@ -26,27 +26,36 @@ func NewSigner(seed string) (*Signer, error) {
 	}, nil
 }
 
-func (s *Signer) SignTx(tx *Transaction) error {
+// SignTx Returns the signed transaction. The original transaction object is not modified, and the returned value should be used after signing.
+func (s *Signer) SignTx(tx Transaction) (Transaction, error) {
 
 	if tx.SourcePublicKey != s.pubKey {
-		return errors.New("source public key does not match")
+		return Transaction{}, errors.New("source public key does not match signer")
 	}
 
 	subSeed, err := GetSubSeed(s.seed)
 	if err != nil {
-		return errors.Wrap(err, "getting sub-seed")
+		return Transaction{}, errors.Wrap(err, "getting sub-seed")
 	}
 
 	unsignedDigest, err := tx.GetUnsignedDigest()
 	if err != nil {
-		return errors.Wrap(err, "getting unsigned transaction digest")
+		return Transaction{}, errors.Wrap(err, "getting unsigned transaction digest")
 	}
 
 	signature, err := schnorrq.Sign(subSeed, tx.SourcePublicKey, unsignedDigest)
 	if err != nil {
-		return errors.Wrap(err, "creating signature")
+		return Transaction{}, errors.Wrap(err, "creating signature")
 	}
-	tx.Signature = signature
 
-	return nil
+	return Transaction{
+		SourcePublicKey:      tx.SourcePublicKey,
+		DestinationPublicKey: tx.DestinationPublicKey,
+		Amount:               tx.Amount,
+		Tick:                 tx.Tick,
+		InputType:            tx.InputType,
+		InputSize:            tx.InputSize,
+		Input:                tx.Input,
+		Signature:            signature,
+	}, nil
 }
