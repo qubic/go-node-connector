@@ -3,6 +3,7 @@ package types
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/qubic/go-schnorrq"
 	"testing"
 )
 
@@ -65,6 +66,16 @@ func TestAssetTransaction(t *testing.T) {
 			assetTransferTransaction, err = signer.SignTx(assetTransferTransaction)
 			if err != nil {
 				t.Fatalf("signing asset transfer transaction: %s", err)
+			}
+
+			unsignedDigest, err := assetTransferTransaction.GetUnsignedDigest()
+			if err != nil {
+				t.Fatalf("getting unsigned digest for asset transfer transaction")
+			}
+
+			err = schnorrq.Verify(assetTransferTransaction.SourcePublicKey, unsignedDigest, assetTransferTransaction.Signature)
+			if err != nil {
+				t.Fatalf("verifying asset transfer transaction signature: %s", err)
 			}
 
 		})
