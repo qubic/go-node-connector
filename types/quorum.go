@@ -37,6 +37,9 @@ type QuorumTickVote struct {
 	TxDigest                 [32]byte
 	ExpectedNextTickTxDigest [32]byte
 
+	PreviousTransactionBodyDigest [32]byte
+	SaltedTransactionBodyDigest   [32]byte
+
 	Signature [SignatureSize]byte
 }
 
@@ -69,5 +72,3 @@ func (qv *QuorumVotes) UnmarshallFromReader(r io.Reader) error {
 
 	return nil
 }
-
-
