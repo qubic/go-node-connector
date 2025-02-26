@@ -7,7 +7,7 @@ import (
 )
 
 func TestQubic_serializeBinary_givenGetAssetByUniverseIndexPayload_thenProduceCorrectBinary(t *testing.T) {
-	request := RequestAssetsByUniverseIndex{
+	request := requestAssetsByUniverseIndex{
 		RequestType:   RequestTypeAssetByUniverseIndex,
 		UniverseIndex: 4,
 	}

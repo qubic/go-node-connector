@@ -262,7 +262,7 @@ func (qc *Client) QuerySmartContract(ctx context.Context, rcf RequestContractFun
 
 const RequestTypeAssetByUniverseIndex uint16 = 3
 
-type RequestAssetsByUniverseIndex struct {
+type requestAssetsByUniverseIndex struct {
 	RequestType   uint16    // 2b
 	Flags         uint16    // 2b
 	UniverseIndex uint32    // 4b
@@ -271,7 +271,7 @@ type RequestAssetsByUniverseIndex struct {
 
 func (qc *Client) GetAssetsByUniverseIndex(ctx context.Context, index uint32) (types.AssetIssuances, error) {
 
-	request := RequestAssetsByUniverseIndex{
+	request := requestAssetsByUniverseIndex{
 		RequestType:   RequestTypeAssetByUniverseIndex,
 		UniverseIndex: index,
 	}
