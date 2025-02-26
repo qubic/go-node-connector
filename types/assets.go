@@ -389,11 +389,92 @@ type AssetOwnershipData struct {
 
 type AssetOwnership struct {
 	Asset         AssetOwnershipData
-	tick          uint32
-	universeIndex uint32
+	Tick          uint32
+	UniverseIndex uint32
 }
 
 type AssetOwnerships []AssetOwnership
+
+func (oa *AssetOwnerships) UnmarshallFromReader(r io.Reader) error {
+	for {
+		var header RequestResponseHeader
+		err := binary.Read(r, binary.BigEndian, &header)
+		if err != nil {
+			return errors.Wrap(err, "reading header")
+		}
+
+		if header.Type == EndResponse {
+			break
+		}
+
+		if header.Type != RespondAssets {
+			return errors.Errorf("Invalid header type, expected %d, found %d", RespondAssets, header.Type)
+		}
+
+		var assetOwnershipData AssetOwnershipData
+		err = assetOwnershipData.UnmarshallBinary(r)
+		if err != nil {
+			return errors.Wrap(err, "unmarshalling owned asset data")
+		}
+
+		var tick uint32
+		err = binary.Read(r, binary.LittleEndian, &tick)
+		if err != nil {
+			return errors.Wrap(err, "reading asset tick")
+		}
+
+		var universeIndex uint32
+		err = binary.Read(r, binary.LittleEndian, &universeIndex)
+		if err != nil {
+			return errors.Wrap(err, "reading asset universe index")
+		}
+
+		assetOwnership := AssetOwnership{
+			Asset:         assetOwnershipData,
+			Tick:          tick,
+			UniverseIndex: universeIndex,
+		}
+
+		*oa = append(*oa, assetOwnership)
+	}
+
+	return nil
+}
+
+func (ad *AssetOwnershipData) UnmarshallBinary(r io.Reader) error {
+
+	err := binary.Read(r, binary.LittleEndian, &ad.PublicKey)
+	if err != nil {
+		return errors.Wrap(err, "reading asset data")
+	}
+
+	err = binary.Read(r, binary.LittleEndian, &ad.Type)
+	if err != nil {
+		return errors.Wrap(err, "reading asset type")
+	}
+
+	err = binary.Read(r, binary.LittleEndian, &ad.Padding)
+	if err != nil {
+		return errors.Wrap(err, "reading asset padding")
+	}
+
+	err = binary.Read(r, binary.LittleEndian, &ad.ManagingContractIndex)
+	if err != nil {
+		return errors.Wrap(err, "reading asset managing contract index")
+	}
+
+	err = binary.Read(r, binary.LittleEndian, &ad.IssuanceIndex)
+	if err != nil {
+		return errors.Wrap(err, "reading asset issuance index")
+	}
+
+	err = binary.Read(r, binary.LittleEndian, &ad.NumberOfUnits)
+	if err != nil {
+		return errors.Wrap(err, "reading asset number of units")
+	}
+
+	return nil
+}
 
 type AssetPossessionData struct {
 	PublicKey             [32]byte
