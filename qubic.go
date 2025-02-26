@@ -260,6 +260,30 @@ func (qc *Client) QuerySmartContract(ctx context.Context, rcf RequestContractFun
 	return result, nil
 }
 
+const RequestTypeAssetByUniverseIndex uint16 = 3
+
+type RequestAssetsByUniverseIndex struct {
+	RequestType   uint16    // 2b
+	Flags         uint16    // 2b
+	UniverseIndex uint32    // 4b
+	Padding       [104]byte // 104b
+}
+
+func (qc *Client) GetAssetsByUniverseIndex(ctx context.Context, index uint32) (types.AssetIssuances, error) {
+
+	request := RequestAssetsByUniverseIndex{
+		RequestType:   RequestTypeAssetByUniverseIndex,
+		UniverseIndex: index,
+	}
+
+	var result types.AssetIssuances
+	err := qc.sendRequest(ctx, types.RequestAssets, request, &result)
+	if err != nil {
+		return types.AssetIssuances{}, errors.Wrap(err, "sending req to node")
+	}
+	return result, nil
+}
+
 func (qc *Client) sendRequest(ctx context.Context, requestType uint8, requestData interface{}, dest ReaderUnmarshaler) error {
 	packet, err := serializeRequest(ctx, requestType, requestData)
 	if err != nil {

@@ -315,3 +315,99 @@ func (ad *OwnedAssetData) UnmarshallBinary(r io.Reader) error {
 
 	return nil
 }
+
+// TODO new asset requests are very similar to old one but typically have one property less. How to handle this?
+
+// issuance
+
+type AssetIssuance struct {
+	Asset         IssuedAssetData
+	Tick          uint32
+	UniverseIndex uint32
+}
+
+type AssetIssuances []AssetIssuance
+
+func (ia *AssetIssuances) UnmarshallFromReader(r io.Reader) error {
+	for {
+		var header RequestResponseHeader
+		err := binary.Read(r, binary.BigEndian, &header)
+		if err != nil {
+			return errors.Wrap(err, "reading header")
+		}
+
+		if header.Type == EndResponse {
+			break
+		}
+
+		if header.Type != RespondAssets {
+			return errors.Errorf("Invalid header type, expected %d, found %d", RespondAssets, header.Type)
+		}
+
+		var issuedAssetData IssuedAssetData
+		err = issuedAssetData.UnmarshallBinary(r)
+		if err != nil {
+			return errors.Wrap(err, "unmarshalling issued asset data")
+		}
+
+		var tick uint32
+		err = binary.Read(r, binary.LittleEndian, &tick)
+		if err != nil {
+			return errors.Wrap(err, "reading asset tick")
+		}
+
+		var universeIndex uint32
+		err = binary.Read(r, binary.LittleEndian, &universeIndex)
+		if err != nil {
+			return errors.Wrap(err, "reading asset universe index")
+		}
+
+		issuedAsset := AssetIssuance{
+			Asset:         issuedAssetData,
+			Tick:          tick,
+			UniverseIndex: universeIndex,
+		}
+
+		*ia = append(*ia, issuedAsset)
+	}
+
+	return nil
+}
+
+// ownership
+
+// IssuedAssetData can be reused. OwnedAssetData and PossessedAssetData have incorrect structure
+
+type AssetOwnershipData struct {
+	PublicKey             [32]byte
+	Type                  byte
+	Padding               [1]int8
+	ManagingContractIndex uint16
+	IssuanceIndex         uint32
+	NumberOfUnits         int64
+}
+
+type AssetOwnership struct {
+	Asset         AssetOwnershipData
+	tick          uint32
+	universeIndex uint32
+}
+
+type AssetOwnerships []AssetOwnership
+
+type AssetPossessionData struct {
+	PublicKey             [32]byte
+	Type                  byte
+	Padding               [1]int8
+	ManagingContractIndex uint16
+	IssuanceIndex         uint32
+	NumberOfUnits         int64
+}
+
+type AssetPossession struct {
+	Asset         AssetPossessionData
+	tick          uint32
+	universeIndex uint32
+}
+
+type AssetPossessions []AssetPossession
