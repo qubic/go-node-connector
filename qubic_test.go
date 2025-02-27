@@ -68,7 +68,7 @@ func TestQubic_serializeBinary_requestIssuedAssetsByFilter_givenIssuerAndAssetNa
 }
 
 func TestQubic_serializeBinary_requestOwnedAssetsByFilter_thenProduceCorrectBinary(t *testing.T) {
-	request, err := createAssetOwnershipByFilterRequest("", "QX", "", 0)
+	request, err := createByFilterRequest(requestTypeAssetOwnershipRecords, "", "QX", "", "", 0, 0)
 	assert.NoError(t, err)
 
 	bytes, err := serializeBinary(request)
@@ -79,7 +79,7 @@ func TestQubic_serializeBinary_requestOwnedAssetsByFilter_thenProduceCorrectBina
 }
 
 func TestQubic_serializeBinary_requestOwnedAssetsByFilter_givenOwner_thenProduceCorrectBinary(t *testing.T) {
-	request, err := createAssetOwnershipByFilterRequest("", "QX",
+	request, err := createGetAssetOwnershipsByFilterRequest("", "QX",
 		"KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", 0)
 	assert.NoError(t, err)
 
@@ -91,7 +91,7 @@ func TestQubic_serializeBinary_requestOwnedAssetsByFilter_givenOwner_thenProduce
 }
 
 func TestQubic_serializeBinary_requestOwnedAssetsByFilter_givenContract_thenProduceCorrectBinary(t *testing.T) {
-	request, err := createAssetOwnershipByFilterRequest("", "QX", "", 1)
+	request, err := createGetAssetOwnershipsByFilterRequest("", "QX", "", 1)
 	assert.NoError(t, err)
 
 	bytes, err := serializeBinary(request)
@@ -102,7 +102,7 @@ func TestQubic_serializeBinary_requestOwnedAssetsByFilter_givenContract_thenProd
 }
 
 func TestQubic_serializeBinary_requestOwnedAssetsByFilter_givenOwnerAndContract_thenProduceCorrectBinary(t *testing.T) {
-	request, err := createAssetOwnershipByFilterRequest("", "QX",
+	request, err := createGetAssetOwnershipsByFilterRequest("", "QX",
 		"KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", 1)
 	assert.NoError(t, err)
 
@@ -110,5 +110,100 @@ func TestQubic_serializeBinary_requestOwnedAssetsByFilter_givenOwnerAndContract_
 	assert.NoError(t, err)
 
 	expectedHex := "0100600001000000000000000000000000000000000000000000000000000000000000000000000051580000000000004477ab04b56ece48bccf40c617fd791a4088d1893a65f201a694abc60d5035c90000000000000000000000000000000000000000000000000000000000000000"
+	assert.Equal(t, expectedHex, hex.EncodeToString(bytes))
+}
+
+func TestQubic_serializeBinary_requestPossessedAssetsByFilter_thenProduceCorrectBinary(t *testing.T) {
+	request, err := createGetAssetPossessionsByFilterRequest("", "QX", "", "", 0, 0)
+	assert.NoError(t, err)
+
+	bytes, err := serializeBinary(request)
+	assert.NoError(t, err)
+
+	expectedHex := "02007800000000000000000000000000000000000000000000000000000000000000000000000000515800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+	assert.Equal(t, expectedHex, hex.EncodeToString(bytes))
+}
+
+func TestQubic_serializeBinary_requestPossessedAssetsByFilter_givenOwner_thenProduceCorrectBinary(t *testing.T) {
+	request, err := createGetAssetPossessionsByFilterRequest("", "QX",
+		"KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", "", 0, 0)
+	assert.NoError(t, err)
+
+	bytes, err := serializeBinary(request)
+	assert.NoError(t, err)
+
+	expectedHex := "0200700000000000000000000000000000000000000000000000000000000000000000000000000051580000000000004477ab04b56ece48bccf40c617fd791a4088d1893a65f201a694abc60d5035c90000000000000000000000000000000000000000000000000000000000000000"
+	assert.Equal(t, expectedHex, hex.EncodeToString(bytes))
+}
+
+func TestQubic_serializeBinary_requestPossessedAssetsByFilter_givenOwnerContract_thenProduceCorrectBinary(t *testing.T) {
+	request, err := createGetAssetPossessionsByFilterRequest("", "QX",
+		"", "", 1, 0)
+	assert.NoError(t, err)
+
+	bytes, err := serializeBinary(request)
+	assert.NoError(t, err)
+
+	expectedHex := "02006800010000000000000000000000000000000000000000000000000000000000000000000000515800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+	assert.Equal(t, expectedHex, hex.EncodeToString(bytes))
+}
+
+func TestQubic_serializeBinary_requestPossessedAssetsByFilter_givenOwnerAndOwnerContract_thenProduceCorrectBinary(t *testing.T) {
+	request, err := createGetAssetPossessionsByFilterRequest("", "QX",
+		"KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", "", 1, 0)
+	assert.NoError(t, err)
+
+	bytes, err := serializeBinary(request)
+	assert.NoError(t, err)
+
+	expectedHex := "0200600001000000000000000000000000000000000000000000000000000000000000000000000051580000000000004477ab04b56ece48bccf40c617fd791a4088d1893a65f201a694abc60d5035c90000000000000000000000000000000000000000000000000000000000000000"
+	assert.Equal(t, expectedHex, hex.EncodeToString(bytes))
+}
+
+func TestQubic_serializeBinary_requestPossessedAssetsByFilter_givenPossessor_thenProduceCorrectBinary(t *testing.T) {
+	request, err := createGetAssetPossessionsByFilterRequest("", "QX",
+		"", "KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", 0, 0)
+	assert.NoError(t, err)
+
+	bytes, err := serializeBinary(request)
+	assert.NoError(t, err)
+
+	expectedHex := "02005800000000000000000000000000000000000000000000000000000000000000000000000000515800000000000000000000000000000000000000000000000000000000000000000000000000004477ab04b56ece48bccf40c617fd791a4088d1893a65f201a694abc60d5035c9"
+	assert.Equal(t, expectedHex, hex.EncodeToString(bytes))
+}
+
+func TestQubic_serializeBinary_requestPossessedAssetsByFilter_givenPossessorContract_thenProduceCorrectBinary(t *testing.T) {
+	request, err := createGetAssetPossessionsByFilterRequest("", "QX",
+		"", "", 0, 1)
+	assert.NoError(t, err)
+
+	bytes, err := serializeBinary(request)
+	assert.NoError(t, err)
+
+	expectedHex := "02003800000001000000000000000000000000000000000000000000000000000000000000000000515800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+	assert.Equal(t, expectedHex, hex.EncodeToString(bytes))
+}
+
+func TestQubic_serializeBinary_requestPossessedAssetsByFilter_givenPossessorAndPossessorContract_thenProduceCorrectBinary(t *testing.T) {
+	request, err := createGetAssetPossessionsByFilterRequest("", "QX",
+		"", "KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", 0, 1)
+	assert.NoError(t, err)
+
+	bytes, err := serializeBinary(request)
+	assert.NoError(t, err)
+
+	expectedHex := "02001800000001000000000000000000000000000000000000000000000000000000000000000000515800000000000000000000000000000000000000000000000000000000000000000000000000004477ab04b56ece48bccf40c617fd791a4088d1893a65f201a694abc60d5035c9"
+	assert.Equal(t, expectedHex, hex.EncodeToString(bytes))
+}
+
+func TestQubic_serializeBinary_requestPossessedAssetsByFilter_givenAllFilters_thenProduceCorrectBinary(t *testing.T) {
+	request, err := createGetAssetPossessionsByFilterRequest("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFXIB", "QX",
+		"KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", "KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", 1, 1)
+	assert.NoError(t, err)
+
+	bytes, err := serializeBinary(request)
+	assert.NoError(t, err)
+
+	expectedHex := "0200000001000100000000000000000000000000000000000000000000000000000000000000000051580000000000004477ab04b56ece48bccf40c617fd791a4088d1893a65f201a694abc60d5035c94477ab04b56ece48bccf40c617fd791a4088d1893a65f201a694abc60d5035c9"
 	assert.Equal(t, expectedHex, hex.EncodeToString(bytes))
 }

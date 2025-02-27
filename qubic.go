@@ -283,9 +283,27 @@ type requestAssetsByFilter struct {
 	Possessor                  [32]byte
 }
 
-func (qc *Client) GetAssetOwnershipsByFilter(ctx context.Context, issuerIdentity, assetName, ownerIdentity string, ownerContract uint16) (types.AssetOwnerships, error) {
+func (qc *Client) GetAssetPossessionsByFilter(ctx context.Context, issuerIdentity, assetName,
+	ownerIdentity, possessorIdentity string, ownerContract, possessorContract uint16) (types.AssetPossessions, error) {
 
-	request, err := createAssetOwnershipByFilterRequest(issuerIdentity, assetName, ownerIdentity, ownerContract)
+	request, err := createGetAssetPossessionsByFilterRequest(
+		issuerIdentity, assetName, ownerIdentity, possessorIdentity, ownerContract, possessorContract)
+	if err != nil {
+		return types.AssetPossessions{}, errors.Wrap(err, "creating request object")
+	}
+
+	var result types.AssetPossessions
+	err = qc.sendRequest(ctx, types.RequestAssets, request, &result)
+	if err != nil {
+		return types.AssetPossessions{}, errors.Wrap(err, "sending request to node")
+	}
+	return result, nil
+}
+
+func (qc *Client) GetAssetOwnershipsByFilter(ctx context.Context, issuerIdentity, assetName,
+	ownerIdentity string, ownerContract uint16) (types.AssetOwnerships, error) {
+
+	request, err := createGetAssetOwnershipsByFilterRequest(issuerIdentity, assetName, ownerIdentity, ownerContract)
 	if err != nil {
 		return types.AssetOwnerships{}, errors.Wrap(err, "creating request object")
 	}
@@ -293,13 +311,22 @@ func (qc *Client) GetAssetOwnershipsByFilter(ctx context.Context, issuerIdentity
 	var result types.AssetOwnerships
 	err = qc.sendRequest(ctx, types.RequestAssets, request, &result)
 	if err != nil {
-		return types.AssetOwnerships{}, errors.Wrap(err, "sending req to node")
+		return types.AssetOwnerships{}, errors.Wrap(err, "sending request to node")
 	}
 	return result, nil
-
 }
 
-func createAssetOwnershipByFilterRequest(issuerIdentity, assetName, ownerIdentity string, ownerContract uint16) (requestAssetsByFilter, error) {
+func createGetAssetOwnershipsByFilterRequest(issuerIdentity, assetName, ownerIdentity string, ownerContract uint16) (requestAssetsByFilter, error) {
+	return createByFilterRequest(requestTypeAssetOwnershipRecords,
+		issuerIdentity, assetName, ownerIdentity, "", ownerContract, 0)
+}
+
+func createGetAssetPossessionsByFilterRequest(issuerIdentity, assetName, ownerIdentity, possessorIdentity string, ownerContract, possessorContract uint16) (requestAssetsByFilter, error) {
+	return createByFilterRequest(requestTypeAssetPossessionRecords,
+		issuerIdentity, assetName, ownerIdentity, possessorIdentity, ownerContract, possessorContract)
+}
+
+func createByFilterRequest(requestType uint16, issuerIdentity, assetName, ownerIdentity, possessorIdentity string, ownerContract, possessorContract uint16) (requestAssetsByFilter, error) {
 	var issuer = [32]byte{}
 	if len(issuerIdentity) > 0 {
 		identity := types.Identity(issuerIdentity)
@@ -321,20 +348,30 @@ func createAssetOwnershipByFilterRequest(issuerIdentity, assetName, ownerIdentit
 		identity := types.Identity(ownerIdentity)
 		pubKey, err := identity.ToPubKey(false)
 		if err != nil {
-			return requestAssetsByFilter{}, errors.Wrap(err, "converting issuer identity to public key")
+			return requestAssetsByFilter{}, errors.Wrap(err, "converting owner identity to public key")
 		}
 		owner = pubKey
 	}
 
+	var possessor = [32]byte{}
+	if len(possessorIdentity) > 0 {
+		identity := types.Identity(possessorIdentity)
+		pubKey, err := identity.ToPubKey(false)
+		if err != nil {
+			return requestAssetsByFilter{}, errors.Wrap(err, "converting possessor identity to public key")
+		}
+		possessor = pubKey
+	}
+
 	request := requestAssetsByFilter{
-		RequestType:                requestTypeAssetOwnershipRecords,
-		Flags:                      getFlags(ownerIdentity, "", ownerContract, 0),
-		OwnershipManagingContract:  ownerContract, // pad
-		PossessionManagingContract: 0,             // pad
+		RequestType:                requestType,
+		Flags:                      getFlags(ownerIdentity, possessorIdentity, ownerContract, possessorContract),
+		OwnershipManagingContract:  ownerContract,     // pad
+		PossessionManagingContract: possessorContract, // pad
 		Issuer:                     issuer,
 		AssetName:                  name,
-		Owner:                      owner,      // pad
-		Possessor:                  [32]byte{}, // pad
+		Owner:                      owner,     // pad
+		Possessor:                  possessor, // pad
 	}
 
 	return request, nil
@@ -366,7 +403,7 @@ func (qc *Client) GetAssetIssuancesByFilter(ctx context.Context, issuerIdentity,
 	var result types.AssetIssuances
 	err = qc.sendRequest(ctx, types.RequestAssets, request, &result)
 	if err != nil {
-		return types.AssetIssuances{}, errors.Wrap(err, "sending req to node")
+		return types.AssetIssuances{}, errors.Wrap(err, "sending request to node")
 	}
 	return result, nil
 }

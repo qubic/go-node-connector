@@ -9,7 +9,6 @@ import (
 )
 
 func TestAssets_AssetIssuance_UnmarshallFromReader(t *testing.T) {
-
 	// RESPOND_ASSETS header + payload + END_RESPONSE header
 	hexStr := "400000351cd1f26200000000000000000000000000000000000000000000000000000000000000000152414e444f4d000000000000000000f4f4320103000000080000231cd1f262"
 
@@ -35,7 +34,6 @@ func TestAssets_AssetIssuance_UnmarshallFromReader(t *testing.T) {
 }
 
 func TestAssets_AssetIssuances_UnmarshallFromReader(t *testing.T) {
-
 	// RESPOND_ASSETS header + payload + RESPOND_ASSETS header + payload + END_RESPONSE header
 	hexStr := "400000357ee06e4a0000000000000000000000000000000000000000000000000000000000000000014d4c4d0000000000000000000000002f18340100000000" +
 		"400000357ee06e4a000000000000000000000000000000000000000000000000000000000000000001515641554c540000000000000000002f18340101000000" +
@@ -74,10 +72,9 @@ func TestAssets_AssetIssuances_UnmarshallFromReader(t *testing.T) {
 }
 
 func TestAssets_AssetOwnerships_UnmarshallFromReader(t *testing.T) {
-
 	// RESPOND_ASSETS header + payload + RESPOND_ASSETS header + payload + END_RESPONSE header
-	hexStr := "4000003511dcb7b97b5efffa039860590ecc801ab2f9a95da0b97592398d3414db1d3e44cac79d9a020001000400000004000000000000005b1c34017b5eff00" +
-		"4000003511dcb7b9feb0fb0e023c5f98ae9549112117ef3bf80608fcd252abc5772a07efd3f88b10020001000400000001000000000000005b1c3401feb0fb00" +
+	hexStr := "4000003511dcb7b9" + "7b5efffa039860590ecc801ab2f9a95da0b97592398d3414db1d3e44cac79d9a020001000400000004000000000000005b1c34017b5eff00" +
+		"4000003511dcb7b9" + "feb0fb0e023c5f98ae9549112117ef3bf80608fcd252abc5772a07efd3f88b10020001000400000001000000000000005b1c3401feb0fb00" +
 		"0800002328af10a4"
 
 	ownedAssetsBin, err := hex.DecodeString(hexStr)
@@ -116,4 +113,48 @@ func TestAssets_AssetOwnerships_UnmarshallFromReader(t *testing.T) {
 	assert.Equal(t, uint32(16494846), index)
 	tick = owner2.Tick
 	assert.Equal(t, uint32(20192347), tick)
+}
+
+func TestAssets_AssetPossessions_UnmarshallFromReader(t *testing.T) {
+	// RESPOND_ASSETS header + payload + RESPOND_ASSETS header + payload + END_RESPONSE header
+	hexStr := "400000351fd80d67" + "7b5efffa039860590ecc801ab2f9a95da0b97592398d3414db1d3e44cac79d9a030001007b5eff0004000000000000000cb834017c5eff00" +
+		"400000351fd80d67" + "feb0fb0e023c5f98ae9549112117ef3bf80608fcd252abc5772a07efd3f88b1003000100feb0fb0001000000000000000cb83401ffb0fb00" +
+		"080000230904d569"
+
+	ownedAssetsBin, err := hex.DecodeString(hexStr)
+	require.NoError(t, err)
+
+	var result AssetPossessions
+	err = result.UnmarshallFromReader(bytes.NewReader(ownedAssetsBin))
+	require.NoError(t, err)
+
+	assert.Len(t, result, 2)
+	owner1 := result[0]
+	owner2 := result[1]
+
+	asset := owner1.Asset
+	publicKey, _ := hex.DecodeString("7b5efffa039860590ecc801ab2f9a95da0b97592398d3414db1d3e44cac79d9a")
+	assert.Equal(t, [32]uint8(publicKey), asset.PublicKey)
+	assert.Equal(t, uint8(3), asset.Type)
+	assert.Equal(t, uint16(1), asset.ManagingContractIndex)
+	assert.Equal(t, uint32(16735867), asset.OwnershipIndex)
+	assert.Equal(t, int64(4), asset.NumberOfUnits)
+
+	index := owner1.UniverseIndex
+	assert.Equal(t, uint32(16735868), index)
+	tick := owner1.Tick
+	assert.Equal(t, uint32(20232204), tick)
+
+	asset = owner2.Asset
+	publicKey, _ = hex.DecodeString("feb0fb0e023c5f98ae9549112117ef3bf80608fcd252abc5772a07efd3f88b10")
+	assert.Equal(t, [32]uint8(publicKey), asset.PublicKey)
+	assert.Equal(t, uint8(3), asset.Type)
+	assert.Equal(t, uint16(1), asset.ManagingContractIndex)
+	assert.Equal(t, uint32(16494846), asset.OwnershipIndex)
+	assert.Equal(t, int64(1), asset.NumberOfUnits)
+
+	index = owner2.UniverseIndex
+	assert.Equal(t, uint32(16494847), index)
+	tick = owner2.Tick
+	assert.Equal(t, uint32(20232204), tick)
 }
