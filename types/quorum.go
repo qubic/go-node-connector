@@ -23,8 +23,11 @@ type QuorumTickVote struct {
 	Month       uint8
 	Year        uint8
 
-	PreviousResourceTestingDigest uint64
-	SaltedResourceTestingDigest   uint64
+	PreviousResourceTestingDigest uint32
+	SaltedResourceTestingDigest   uint32
+
+	PreviousTransactionBodyDigest uint32
+	SaltedTransactionBodyDigest   uint32
 
 	PreviousSpectrumDigest [32]byte
 	PreviousUniverseDigest [32]byte
@@ -36,9 +39,6 @@ type QuorumTickVote struct {
 
 	TxDigest                 [32]byte
 	ExpectedNextTickTxDigest [32]byte
-
-	PreviousTransactionBodyDigest [32]byte
-	SaltedTransactionBodyDigest   [32]byte
 
 	Signature [SignatureSize]byte
 }
