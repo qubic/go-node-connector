@@ -23,8 +23,11 @@ type QuorumTickVote struct {
 	Month       uint8
 	Year        uint8
 
-	PreviousResourceTestingDigest uint64
-	SaltedResourceTestingDigest   uint64
+	PreviousResourceTestingDigest uint32
+	SaltedResourceTestingDigest   uint32
+
+	PreviousTransactionBodyDigest uint32
+	SaltedTransactionBodyDigest   uint32
 
 	PreviousSpectrumDigest [32]byte
 	PreviousUniverseDigest [32]byte
@@ -69,5 +72,3 @@ func (qv *QuorumVotes) UnmarshallFromReader(r io.Reader) error {
 
 	return nil
 }
-
-
