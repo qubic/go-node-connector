@@ -272,7 +272,7 @@ const flagAnyOwnerContract uint16 = 0b10000
 const flagAnyPossessor uint16 = 0b100000
 const flagAnyPossessorContract uint16 = 0b1000000
 
-type requestAssetsByFilter struct {
+type RequestAssetsByFilter struct {
 	RequestType                uint16
 	Flags                      uint16
 	OwnershipManagingContract  uint16
@@ -287,7 +287,10 @@ func (qc *Client) GetAssetPossessionsByFilter(ctx context.Context, issuerIdentit
 	ownerIdentity, possessorIdentity string, ownerContract, possessorContract uint16) (types.AssetPossessions, error) {
 
 	request, err := createGetAssetPossessionsByFilterRequest(
-		issuerIdentity, assetName, ownerIdentity, possessorIdentity, ownerContract, possessorContract)
+		AssetInformation{issuerIdentity, assetName},
+		AssetUserInformation{ownerIdentity, ownerContract},
+		AssetUserInformation{possessorIdentity, possessorContract})
+
 	if err != nil {
 		return types.AssetPossessions{}, errors.Wrap(err, "creating request object")
 	}
@@ -303,7 +306,10 @@ func (qc *Client) GetAssetPossessionsByFilter(ctx context.Context, issuerIdentit
 func (qc *Client) GetAssetOwnershipsByFilter(ctx context.Context, issuerIdentity, assetName,
 	ownerIdentity string, ownerContract uint16) (types.AssetOwnerships, error) {
 
-	request, err := createGetAssetOwnershipsByFilterRequest(issuerIdentity, assetName, ownerIdentity, ownerContract)
+	request, err := createGetAssetOwnershipsByFilterRequest(
+		AssetInformation{issuerIdentity, assetName},
+		AssetUserInformation{ownerIdentity, ownerContract})
+
 	if err != nil {
 		return types.AssetOwnerships{}, errors.Wrap(err, "creating request object")
 	}
@@ -316,58 +322,66 @@ func (qc *Client) GetAssetOwnershipsByFilter(ctx context.Context, issuerIdentity
 	return result, nil
 }
 
-func createGetAssetOwnershipsByFilterRequest(issuerIdentity, assetName, ownerIdentity string, ownerContract uint16) (requestAssetsByFilter, error) {
-	return createByFilterRequest(requestTypeAssetOwnershipRecords,
-		issuerIdentity, assetName, ownerIdentity, "", ownerContract, 0)
+type AssetInformation struct {
+	Identity string
+	Name     string
 }
 
-func createGetAssetPossessionsByFilterRequest(issuerIdentity, assetName, ownerIdentity, possessorIdentity string, ownerContract, possessorContract uint16) (requestAssetsByFilter, error) {
-	return createByFilterRequest(requestTypeAssetPossessionRecords,
-		issuerIdentity, assetName, ownerIdentity, possessorIdentity, ownerContract, possessorContract)
+type AssetUserInformation struct {
+	Identity string
+	Contract uint16
 }
 
-func createByFilterRequest(requestType uint16, issuerIdentity, assetName, ownerIdentity, possessorIdentity string, ownerContract, possessorContract uint16) (requestAssetsByFilter, error) {
+func createGetAssetOwnershipsByFilterRequest(assetInfo AssetInformation, ownerInfo AssetUserInformation) (RequestAssetsByFilter, error) {
+	return createByFilterRequest(requestTypeAssetOwnershipRecords, assetInfo, ownerInfo, AssetUserInformation{})
+}
+
+func createGetAssetPossessionsByFilterRequest(assetInfo AssetInformation, ownerInfo, possessorInfo AssetUserInformation) (RequestAssetsByFilter, error) {
+	return createByFilterRequest(requestTypeAssetPossessionRecords, assetInfo, ownerInfo, possessorInfo)
+}
+
+func createByFilterRequest(requestType uint16, assetInfo AssetInformation, ownerInfo, possessorInfo AssetUserInformation) (RequestAssetsByFilter, error) {
 	var issuer = [32]byte{}
-	if len(issuerIdentity) > 0 {
-		identity := types.Identity(issuerIdentity)
+	if len(assetInfo.Identity) > 0 {
+		identity := types.Identity(assetInfo.Identity)
 		pubKey, err := identity.ToPubKey(false)
 		if err != nil {
-			return requestAssetsByFilter{}, errors.Wrap(err, "converting issuer identity to public key")
+			return RequestAssetsByFilter{}, errors.Wrap(err, "converting issuer identity to public key")
 		}
 		issuer = pubKey
 	}
 
-	if len(assetName) == 0 {
-		return requestAssetsByFilter{}, errors.New("asset name is required")
+	if len(assetInfo.Name) == 0 {
+		return RequestAssetsByFilter{}, errors.New("asset name is required")
 	}
 	var name [8]byte
-	copy(name[:], assetName)
+	copy(name[:], assetInfo.Name)
 
 	var owner = [32]byte{}
-	if len(ownerIdentity) > 0 {
-		identity := types.Identity(ownerIdentity)
+	if len(ownerInfo.Identity) > 0 {
+		identity := types.Identity(ownerInfo.Identity)
 		pubKey, err := identity.ToPubKey(false)
 		if err != nil {
-			return requestAssetsByFilter{}, errors.Wrap(err, "converting owner identity to public key")
+			return RequestAssetsByFilter{}, errors.Wrap(err, "converting owner identity to public key")
 		}
 		owner = pubKey
 	}
 
 	var possessor = [32]byte{}
-	if len(possessorIdentity) > 0 {
-		identity := types.Identity(possessorIdentity)
+	if len(possessorInfo.Identity) > 0 {
+		identity := types.Identity(possessorInfo.Identity)
 		pubKey, err := identity.ToPubKey(false)
 		if err != nil {
-			return requestAssetsByFilter{}, errors.Wrap(err, "converting possessor identity to public key")
+			return RequestAssetsByFilter{}, errors.Wrap(err, "converting possessor identity to public key")
 		}
 		possessor = pubKey
 	}
 
-	request := requestAssetsByFilter{
+	request := RequestAssetsByFilter{
 		RequestType:                requestType,
-		Flags:                      getFlags(ownerIdentity, possessorIdentity, ownerContract, possessorContract),
-		OwnershipManagingContract:  ownerContract,     // pad
-		PossessionManagingContract: possessorContract, // pad
+		Flags:                      getFlags(ownerInfo, possessorInfo),
+		OwnershipManagingContract:  ownerInfo.Contract,     // pad
+		PossessionManagingContract: possessorInfo.Contract, // pad
 		Issuer:                     issuer,
 		AssetName:                  name,
 		Owner:                      owner,     // pad
@@ -377,18 +391,18 @@ func createByFilterRequest(requestType uint16, issuerIdentity, assetName, ownerI
 	return request, nil
 }
 
-func getFlags(owner, possessor string, ownerContract, possessorContract uint16) uint16 {
+func getFlags(ownerInfo, possessorInfo AssetUserInformation) uint16 {
 	var flags uint16 = 0
-	if len(owner) == 0 {
+	if len(ownerInfo.Identity) == 0 {
 		flags |= flagAnyOwner
 	}
-	if len(possessor) == 0 {
+	if len(possessorInfo.Identity) == 0 {
 		flags |= flagAnyPossessor
 	}
-	if ownerContract == 0 {
+	if ownerInfo.Contract == 0 {
 		flags |= flagAnyOwnerContract
 	}
-	if possessorContract == 0 {
+	if possessorInfo.Contract == 0 {
 		flags |= flagAnyPossessorContract
 	}
 	return flags
@@ -408,7 +422,7 @@ func (qc *Client) GetAssetIssuancesByFilter(ctx context.Context, issuerIdentity,
 	return result, nil
 }
 
-func createAssetIssuancesByFilterRequest(issuerIdentity, assetName string) (requestAssetsByFilter, error) {
+func createAssetIssuancesByFilterRequest(issuerIdentity, assetName string) (RequestAssetsByFilter, error) {
 	var flags uint16 = 0
 
 	var issuer [32]byte
@@ -419,7 +433,7 @@ func createAssetIssuancesByFilterRequest(issuerIdentity, assetName string) (requ
 		identity := types.Identity(issuerIdentity)
 		pubKey, err := identity.ToPubKey(false)
 		if err != nil {
-			return requestAssetsByFilter{}, errors.Wrap(err, "converting issuer identity to public key")
+			return RequestAssetsByFilter{}, errors.Wrap(err, "converting issuer identity to public key")
 		}
 		issuer = pubKey
 	}
@@ -430,7 +444,7 @@ func createAssetIssuancesByFilterRequest(issuerIdentity, assetName string) (requ
 		flags |= flagAnyAssetName
 	}
 
-	request := requestAssetsByFilter{
+	request := RequestAssetsByFilter{
 		RequestType:                requestTypeAssetIssuanceRecords,
 		Flags:                      flags,
 		OwnershipManagingContract:  0, // pad
@@ -444,7 +458,7 @@ func createAssetIssuancesByFilterRequest(issuerIdentity, assetName string) (requ
 	return request, nil
 }
 
-type requestAssetsByUniverseIndex struct {
+type RequestAssetsByUniverseIndex struct {
 	RequestType   uint16    // 2B
 	Flags         uint16    // 2B
 	UniverseIndex uint32    // 4B
@@ -453,7 +467,7 @@ type requestAssetsByUniverseIndex struct {
 
 func (qc *Client) GetAssetsByUniverseIndex(ctx context.Context, index uint32) (types.AssetIssuances, error) {
 
-	request := requestAssetsByUniverseIndex{
+	request := RequestAssetsByUniverseIndex{
 		RequestType:   requestTypeAssetByUniverseIndex,
 		UniverseIndex: index,
 	}
