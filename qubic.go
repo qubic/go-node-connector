@@ -288,8 +288,8 @@ func (qc *Client) GetAssetPossessionsByFilter(ctx context.Context, issuerIdentit
 
 	request, err := createGetAssetPossessionsByFilterRequest(
 		AssetInformation{issuerIdentity, assetName},
-		AssetUserInformation{ownerIdentity, ownerContract},
-		AssetUserInformation{possessorIdentity, possessorContract})
+		AssetHolderInformation{ownerIdentity, ownerContract},
+		AssetHolderInformation{possessorIdentity, possessorContract})
 
 	if err != nil {
 		return types.AssetPossessions{}, errors.Wrap(err, "creating request object")
@@ -308,7 +308,7 @@ func (qc *Client) GetAssetOwnershipsByFilter(ctx context.Context, issuerIdentity
 
 	request, err := createGetAssetOwnershipsByFilterRequest(
 		AssetInformation{issuerIdentity, assetName},
-		AssetUserInformation{ownerIdentity, ownerContract})
+		AssetHolderInformation{ownerIdentity, ownerContract})
 
 	if err != nil {
 		return types.AssetOwnerships{}, errors.Wrap(err, "creating request object")
@@ -327,20 +327,20 @@ type AssetInformation struct {
 	Name     string
 }
 
-type AssetUserInformation struct {
+type AssetHolderInformation struct {
 	Identity string
 	Contract uint16
 }
 
-func createGetAssetOwnershipsByFilterRequest(assetInfo AssetInformation, ownerInfo AssetUserInformation) (RequestAssetsByFilter, error) {
-	return createByFilterRequest(requestTypeAssetOwnershipRecords, assetInfo, ownerInfo, AssetUserInformation{})
+func createGetAssetOwnershipsByFilterRequest(assetInfo AssetInformation, ownerInfo AssetHolderInformation) (RequestAssetsByFilter, error) {
+	return createByFilterRequest(requestTypeAssetOwnershipRecords, assetInfo, ownerInfo, AssetHolderInformation{})
 }
 
-func createGetAssetPossessionsByFilterRequest(assetInfo AssetInformation, ownerInfo, possessorInfo AssetUserInformation) (RequestAssetsByFilter, error) {
+func createGetAssetPossessionsByFilterRequest(assetInfo AssetInformation, ownerInfo, possessorInfo AssetHolderInformation) (RequestAssetsByFilter, error) {
 	return createByFilterRequest(requestTypeAssetPossessionRecords, assetInfo, ownerInfo, possessorInfo)
 }
 
-func createByFilterRequest(requestType uint16, assetInfo AssetInformation, ownerInfo, possessorInfo AssetUserInformation) (RequestAssetsByFilter, error) {
+func createByFilterRequest(requestType uint16, assetInfo AssetInformation, ownerInfo, possessorInfo AssetHolderInformation) (RequestAssetsByFilter, error) {
 	var issuer = [32]byte{}
 	if len(assetInfo.Identity) > 0 {
 		identity := types.Identity(assetInfo.Identity)
@@ -391,7 +391,7 @@ func createByFilterRequest(requestType uint16, assetInfo AssetInformation, owner
 	return request, nil
 }
 
-func getFlags(ownerInfo, possessorInfo AssetUserInformation) uint16 {
+func getFlags(ownerInfo, possessorInfo AssetHolderInformation) uint16 {
 	var flags uint16 = 0
 	if len(ownerInfo.Identity) == 0 {
 		flags |= flagAnyOwner

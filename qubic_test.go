@@ -69,8 +69,8 @@ func TestQubic_serializeBinary_requestIssuedAssetsByFilter_givenIssuerAndAssetNa
 
 func TestQubic_serializeBinary_requestOwnedAssetsByFilter_thenProduceCorrectBinary(t *testing.T) {
 	request, err := createByFilterRequest(requestTypeAssetOwnershipRecords, AssetInformation{"", "QX"},
-		AssetUserInformation{"", 0},
-		AssetUserInformation{"", 0})
+		AssetHolderInformation{"", 0},
+		AssetHolderInformation{"", 0})
 	assert.NoError(t, err)
 
 	bytes, err := serializeBinary(request)
@@ -82,7 +82,7 @@ func TestQubic_serializeBinary_requestOwnedAssetsByFilter_thenProduceCorrectBina
 
 func TestQubic_serializeBinary_requestOwnedAssetsByFilter_givenOwner_thenProduceCorrectBinary(t *testing.T) {
 	request, err := createGetAssetOwnershipsByFilterRequest(AssetInformation{"", "QX"},
-		AssetUserInformation{"KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", 0})
+		AssetHolderInformation{"KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", 0})
 	assert.NoError(t, err)
 
 	bytes, err := serializeBinary(request)
@@ -94,7 +94,7 @@ func TestQubic_serializeBinary_requestOwnedAssetsByFilter_givenOwner_thenProduce
 
 func TestQubic_serializeBinary_requestOwnedAssetsByFilter_givenContract_thenProduceCorrectBinary(t *testing.T) {
 	request, err := createGetAssetOwnershipsByFilterRequest(AssetInformation{"", "QX"},
-		AssetUserInformation{"", 1})
+		AssetHolderInformation{"", 1})
 	assert.NoError(t, err)
 
 	bytes, err := serializeBinary(request)
@@ -106,7 +106,7 @@ func TestQubic_serializeBinary_requestOwnedAssetsByFilter_givenContract_thenProd
 
 func TestQubic_serializeBinary_requestOwnedAssetsByFilter_givenOwnerAndContract_thenProduceCorrectBinary(t *testing.T) {
 	request, err := createGetAssetOwnershipsByFilterRequest(AssetInformation{"", "QX"},
-		AssetUserInformation{"KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", 1})
+		AssetHolderInformation{"KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", 1})
 	assert.NoError(t, err)
 
 	bytes, err := serializeBinary(request)
@@ -117,7 +117,7 @@ func TestQubic_serializeBinary_requestOwnedAssetsByFilter_givenOwnerAndContract_
 }
 
 func TestQubic_serializeBinary_requestPossessedAssetsByFilter_thenProduceCorrectBinary(t *testing.T) {
-	request, err := createGetAssetPossessionsByFilterRequest(AssetInformation{"", "QX"}, AssetUserInformation{"", 0}, AssetUserInformation{"", 0})
+	request, err := createGetAssetPossessionsByFilterRequest(AssetInformation{"", "QX"}, AssetHolderInformation{"", 0}, AssetHolderInformation{"", 0})
 	assert.NoError(t, err)
 
 	bytes, err := serializeBinary(request)
@@ -129,8 +129,8 @@ func TestQubic_serializeBinary_requestPossessedAssetsByFilter_thenProduceCorrect
 
 func TestQubic_serializeBinary_requestPossessedAssetsByFilter_givenOwner_thenProduceCorrectBinary(t *testing.T) {
 	request, err := createGetAssetPossessionsByFilterRequest(AssetInformation{"", "QX"},
-		AssetUserInformation{"KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", 0},
-		AssetUserInformation{"", 0})
+		AssetHolderInformation{"KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", 0},
+		AssetHolderInformation{"", 0})
 	assert.NoError(t, err)
 
 	bytes, err := serializeBinary(request)
@@ -142,8 +142,8 @@ func TestQubic_serializeBinary_requestPossessedAssetsByFilter_givenOwner_thenPro
 
 func TestQubic_serializeBinary_requestPossessedAssetsByFilter_givenOwnerContract_thenProduceCorrectBinary(t *testing.T) {
 	request, err := createGetAssetPossessionsByFilterRequest(AssetInformation{"", "QX"},
-		AssetUserInformation{"", 1},
-		AssetUserInformation{"", 0})
+		AssetHolderInformation{"", 1},
+		AssetHolderInformation{"", 0})
 	assert.NoError(t, err)
 
 	bytes, err := serializeBinary(request)
@@ -155,8 +155,8 @@ func TestQubic_serializeBinary_requestPossessedAssetsByFilter_givenOwnerContract
 
 func TestQubic_serializeBinary_requestPossessedAssetsByFilter_givenOwnerAndOwnerContract_thenProduceCorrectBinary(t *testing.T) {
 	request, err := createGetAssetPossessionsByFilterRequest(AssetInformation{"", "QX"},
-		AssetUserInformation{"KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", 1},
-		AssetUserInformation{"", 0})
+		AssetHolderInformation{"KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", 1},
+		AssetHolderInformation{"", 0})
 	assert.NoError(t, err)
 
 	bytes, err := serializeBinary(request)
@@ -168,8 +168,8 @@ func TestQubic_serializeBinary_requestPossessedAssetsByFilter_givenOwnerAndOwner
 
 func TestQubic_serializeBinary_requestPossessedAssetsByFilter_givenPossessor_thenProduceCorrectBinary(t *testing.T) {
 	request, err := createGetAssetPossessionsByFilterRequest(AssetInformation{"", "QX"},
-		AssetUserInformation{"", 0},
-		AssetUserInformation{"KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", 0})
+		AssetHolderInformation{"", 0},
+		AssetHolderInformation{"KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", 0})
 	assert.NoError(t, err)
 
 	bytes, err := serializeBinary(request)
@@ -181,8 +181,8 @@ func TestQubic_serializeBinary_requestPossessedAssetsByFilter_givenPossessor_the
 
 func TestQubic_serializeBinary_requestPossessedAssetsByFilter_givenPossessorContract_thenProduceCorrectBinary(t *testing.T) {
 	request, err := createGetAssetPossessionsByFilterRequest(AssetInformation{"", "QX"},
-		AssetUserInformation{"", 0},
-		AssetUserInformation{"", 1})
+		AssetHolderInformation{"", 0},
+		AssetHolderInformation{"", 1})
 	assert.NoError(t, err)
 
 	bytes, err := serializeBinary(request)
@@ -194,8 +194,8 @@ func TestQubic_serializeBinary_requestPossessedAssetsByFilter_givenPossessorCont
 
 func TestQubic_serializeBinary_requestPossessedAssetsByFilter_givenPossessorAndPossessorContract_thenProduceCorrectBinary(t *testing.T) {
 	request, err := createGetAssetPossessionsByFilterRequest(AssetInformation{"", "QX"},
-		AssetUserInformation{"", 0},
-		AssetUserInformation{"KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", 1})
+		AssetHolderInformation{"", 0},
+		AssetHolderInformation{"KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", 1})
 	assert.NoError(t, err)
 
 	bytes, err := serializeBinary(request)
@@ -207,8 +207,8 @@ func TestQubic_serializeBinary_requestPossessedAssetsByFilter_givenPossessorAndP
 
 func TestQubic_serializeBinary_requestPossessedAssetsByFilter_givenAllFilters_thenProduceCorrectBinary(t *testing.T) {
 	request, err := createGetAssetPossessionsByFilterRequest(AssetInformation{"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFXIB", "QX"},
-		AssetUserInformation{"KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", 1},
-		AssetUserInformation{"KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", 1})
+		AssetHolderInformation{"KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", 1},
+		AssetHolderInformation{"KXRSTAAGZKJZCCSHJKCSPTUSUZTAIESNWZJZRTFMBAIVTIPXPUYCFYVFWAZL", 1})
 	assert.NoError(t, err)
 
 	bytes, err := serializeBinary(request)
