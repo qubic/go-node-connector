@@ -469,7 +469,7 @@ func (qc *Client) GetAssetIssuancesByUniverseIndex(ctx context.Context, index ui
 	var result types.AssetIssuances
 	err := qc.getAssetByUniverseIndex(ctx, index, &result)
 	if err != nil {
-		return types.AssetIssuances{}, errors.Wrap(err, "get asset by universe index")
+		return types.AssetIssuances{}, errors.Wrap(err, "getting asset issuance by universe index")
 	}
 	return result, nil
 }
@@ -478,7 +478,7 @@ func (qc *Client) GetAssetOwnershipsByUniverseIndex(ctx context.Context, index u
 	var result types.AssetOwnerships
 	err := qc.getAssetByUniverseIndex(ctx, index, &result)
 	if err != nil {
-		return types.AssetOwnerships{}, errors.Wrap(err, "get asset by universe index")
+		return types.AssetOwnerships{}, errors.Wrap(err, "getting asset ownership by universe index")
 	}
 	return result, nil
 }
@@ -487,7 +487,7 @@ func (qc *Client) GetAssetPossessionsByUniverseIndex(ctx context.Context, index 
 	var result types.AssetPossessions
 	err := qc.getAssetByUniverseIndex(ctx, index, &result)
 	if err != nil {
-		return types.AssetPossessions{}, errors.Wrap(err, "get asset by universe index")
+		return types.AssetPossessions{}, errors.Wrap(err, "getting asset possession by universe index")
 	}
 	return result, nil
 }
