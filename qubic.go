@@ -465,19 +465,46 @@ type RequestAssetsByUniverseIndex struct {
 	Padding       [104]byte // 104B
 }
 
-func (qc *Client) GetAssetsByUniverseIndex(ctx context.Context, index uint32) (types.AssetIssuances, error) {
+func (qc *Client) GetAssetIssuancesByUniverseIndex(ctx context.Context, index uint32) (types.AssetIssuances, error) {
+	var result types.AssetIssuances
+	err := qc.getAssetByUniverseIndex(ctx, index, &result)
+	if err != nil {
+		return types.AssetIssuances{}, errors.Wrap(err, "get asset by universe index")
+	}
+	return result, nil
+}
+
+func (qc *Client) GetAssetOwnershipsByUniverseIndex(ctx context.Context, index uint32) (types.AssetOwnerships, error) {
+	var result types.AssetOwnerships
+	err := qc.getAssetByUniverseIndex(ctx, index, &result)
+	if err != nil {
+		return types.AssetOwnerships{}, errors.Wrap(err, "get asset by universe index")
+	}
+	return result, nil
+}
+
+func (qc *Client) GetAssetPossessionsByUniverseIndex(ctx context.Context, index uint32) (types.AssetPossessions, error) {
+	var result types.AssetPossessions
+	err := qc.getAssetByUniverseIndex(ctx, index, &result)
+	if err != nil {
+		return types.AssetPossessions{}, errors.Wrap(err, "get asset by universe index")
+	}
+	return result, nil
+}
+
+func (qc *Client) getAssetByUniverseIndex(ctx context.Context, index uint32, destination ReaderUnmarshaler) error {
 
 	request := RequestAssetsByUniverseIndex{
 		RequestType:   requestTypeAssetByUniverseIndex,
 		UniverseIndex: index,
 	}
 
-	var result types.AssetIssuances
-	err := qc.sendRequest(ctx, types.RequestAssets, request, &result)
+	err := qc.sendRequest(ctx, types.RequestAssets, request, destination)
 	if err != nil {
-		return types.AssetIssuances{}, errors.Wrap(err, "sending req to node")
+		return errors.Wrap(err, "sending req to node")
 	}
-	return result, nil
+	return nil
+
 }
 
 func (qc *Client) sendRequest(ctx context.Context, requestType uint8, requestData interface{}, dest ReaderUnmarshaler) error {
