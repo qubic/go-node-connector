@@ -28,6 +28,8 @@ const (
 	ExchangePublicPeers      = 0
 	ContractFunctionRequest  = 42
 	ContractFunctionResponse = 43
+	RequestAssets            = 52
+	RespondAssets            = 53
 )
 
 type RequestResponseHeader struct {
