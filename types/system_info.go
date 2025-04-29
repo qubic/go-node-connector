@@ -34,11 +34,11 @@ type SystemInfo struct {
 
 	TargetTickVoteSignature uint32
 
-	reserve0 uint64
-	reserve1 uint64
-	reserve2 uint64
-	reserve3 uint64
-	reserve4 uint64
+	Reserve0 uint64
+	Reserve1 uint64
+	Reserve2 uint64
+	Reserve3 uint64
+	Reserve4 uint64
 }
 
 func (si *SystemInfo) UnmarshallFromReader(r io.Reader) error {
@@ -53,128 +53,12 @@ func (si *SystemInfo) UnmarshallFromReader(r io.Reader) error {
 	}
 
 	if header.Type != SystemInfoResponse {
-		return errors.Wrapf(err, "invalid header type. expected %d, found %d", SystemInfoResponse, header.Type)
+		return errors.Errorf("invalid header type. expected %d, found %d", SystemInfoResponse, header.Type)
 	}
 
-	err = binary.Read(r, binary.LittleEndian, &si.Version)
+	err = binary.Read(r, binary.LittleEndian, si)
 	if err != nil {
-		return errors.Wrap(err, "reading system version")
+		return errors.Wrap(err, "reading system information response")
 	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.Epoch)
-	if err != nil {
-		return errors.Wrap(err, "reading system epoch")
-	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.Tick)
-	if err != nil {
-		return errors.Wrap(err, "reading system tick")
-	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.InitialTick)
-	if err != nil {
-		return errors.Wrap(err, "reading system initial tick")
-	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.LatestCreatedTick)
-	if err != nil {
-		return errors.Wrap(err, "reading system latest created tick")
-	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.InitialMillisecond)
-	if err != nil {
-		return errors.Wrap(err, "reading system initial millisecond")
-	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.InitialSecond)
-	if err != nil {
-		return errors.Wrap(err, "reading system initial second")
-	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.InitialMinute)
-	if err != nil {
-		return errors.Wrap(err, "reading system initial minute")
-	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.InitialHour)
-	if err != nil {
-		return errors.Wrap(err, "reading system initial hour")
-	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.InitialDay)
-	if err != nil {
-		return errors.Wrap(err, "reading system initial day")
-	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.InitialMonth)
-	if err != nil {
-		return errors.Wrap(err, "reading system initial month")
-	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.InitialYear)
-	if err != nil {
-		return errors.Wrap(err, "reading system initial year")
-	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.NumberOfEntities)
-	if err != nil {
-		return errors.Wrap(err, "reading system number of entities")
-	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.NumberOfTransactions)
-	if err != nil {
-		return errors.Wrap(err, "reading system number of transactions")
-	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.RandomMiningSeed)
-	if err != nil {
-		return errors.Wrap(err, "reading system random mining seed")
-	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.SolutionThreshold)
-	if err != nil {
-		return errors.Wrap(err, "reading system solution threshold")
-	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.TotalSpectrumAmount)
-	if err != nil {
-		return errors.Wrap(err, "reading system total spectrum amount")
-	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.CurrentEntityBalanceDustThreshold)
-	if err != nil {
-		return errors.Wrap(err, "reading system current entity balance dust threshold")
-	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.TargetTickVoteSignature)
-	if err != nil {
-		return errors.Wrap(err, "reading system target tick vote signature")
-	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.reserve0)
-	if err != nil {
-		return errors.Wrap(err, "reading system info packet reserve 0")
-	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.reserve1)
-	if err != nil {
-		return errors.Wrap(err, "reading system info packet reserve 1")
-	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.reserve2)
-	if err != nil {
-		return errors.Wrap(err, "reading system info packet reserve 2")
-	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.reserve3)
-	if err != nil {
-		return errors.Wrap(err, "reading system info packet reserve 3")
-	}
-
-	err = binary.Read(r, binary.LittleEndian, &si.reserve4)
-	if err != nil {
-		return errors.Wrap(err, "reading system info packet reserve 4")
-	}
-
 	return nil
 }

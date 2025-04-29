@@ -121,7 +121,7 @@ func TestQubicIntegration_GetAssetOwnershipsByFilter(t *testing.T) {
 }
 
 func TestQubicIntegration_GetAssetPossessionsByFilter(t *testing.T) {
-	client, err := NewClient(context.Background(), "91.210.226.50", "31841")
+	client, err := NewClient(context.Background(), nodeIp, "21841")
 	assert.NoError(t, err)
 
 	possessions, err := client.GetAssetPossessionsByFilter(context.Background(),
@@ -147,34 +147,3 @@ func TestQubicIntegration_GetAssetPossessionsByFilter(t *testing.T) {
 	assert.GreaterOrEqual(t, asset.NumberOfUnits, int64(1))
 	assert.Len(t, asset.PublicKey, 32)
 }
-
-/*func TestClient_GetSystemInfo(t *testing.T) {
-	client, err := NewClient(context.Background(), "", "31841")
-	assert.NoError(t, err)
-
-	systemInfo, err := client.GetSystemInfo(context.Background())
-	require.NoError(t, err)
-	assert.NotEmpty(t, systemInfo)
-
-	fmt.Printf("Version: %d\n", systemInfo.Version)
-	fmt.Printf("Epoch: %d\n", systemInfo.Epoch)
-
-	fmt.Printf("Tick: %d\n", systemInfo.Tick)
-	fmt.Printf("Initial tick: %d\n", systemInfo.InitialTick)
-	fmt.Printf("Latest created tick: %d\n", systemInfo.LatestCreatedTick)
-
-	fmt.Printf("Number of entities: %d\n", systemInfo.NumberOfEntities)
-	fmt.Printf("Number of transactions: %d\n", systemInfo.NumberOfTransactions)
-
-	fmt.Printf("Solution threshold: %d\n", systemInfo.SolutionThreshold)
-
-	fmt.Printf("Total spectrum amount: %d\n", systemInfo.TotalSpectrumAmount)
-
-	fmt.Printf("Random mining seed: %x\n", systemInfo.RandomMiningSeed)
-
-	fmt.Printf("Current entity balance dust threshold: %d\n", systemInfo.CurrentEntityBalanceDustThreshold)
-
-	fmt.Printf("Target tick vote signature: %X\n", systemInfo.TargetTickVoteSignature)
-
-}
-*/
