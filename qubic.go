@@ -135,6 +135,17 @@ func (qc *Client) GetTickInfo(ctx context.Context) (types.TickInfo, error) {
 	return result, nil
 }
 
+func (qc *Client) GetSystemInfo(ctx context.Context) (types.SystemInfo, error) {
+	var result types.SystemInfo
+
+	err := qc.sendRequest(ctx, types.SystemInfoRequest, nil, &result)
+	if err != nil {
+		return types.SystemInfo{}, errors.Wrap(err, "sending req to node")
+	}
+
+	return result, nil
+}
+
 func (qc *Client) GetTxStatus(ctx context.Context, tick uint32) (types.TransactionStatus, error) {
 	request := struct {
 		Tick uint32
@@ -174,6 +185,9 @@ func (qc *Client) GetTickData(ctx context.Context, tickNumber uint32) (types.Tic
 
 func (qc *Client) GetTickTransactions(ctx context.Context, tickNumber uint32) (types.Transactions, error) {
 	tickData, err := qc.GetTickData(ctx, tickNumber)
+	if err != nil {
+		return types.Transactions{}, errors.Wrap(err, "getting tick data")
+	}
 	var nrTx int
 	for _, digest := range tickData.TransactionDigests {
 		if digest == [32]byte{} {
