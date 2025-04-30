@@ -30,6 +30,8 @@ const (
 	ContractFunctionResponse = 43
 	RequestAssets            = 52
 	RespondAssets            = 53
+	SystemInfoRequest        = 46
+	SystemInfoResponse       = 47
 )
 
 type RequestResponseHeader struct {
