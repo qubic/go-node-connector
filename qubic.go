@@ -188,14 +188,8 @@ func (qc *Client) GetTickTransactions(ctx context.Context, tickNumber uint32) (t
 	if err != nil {
 		return types.Transactions{}, errors.Wrap(err, "getting tick data")
 	}
-	var nrTx int
-	for _, digest := range tickData.TransactionDigests {
-		if digest == [32]byte{} {
-			continue
-		}
-		nrTx++
-	}
 
+	nrTx := getTickTransactionsNrTx(tickData)
 	if nrTx == 0 {
 		return types.Transactions{}, nil
 	}
@@ -218,7 +212,28 @@ func (qc *Client) GetTickTransactions(ctx context.Context, tickNumber uint32) (t
 		return nil, errors.Wrap(err, "sending transaction req")
 	}
 
-	return result, nil
+	var validTxs = make([]types.Transaction, 0, nrTx)
+	for _, tx := range result {
+		// check if it's a 0 transaction
+		if tx.Signature == [64]byte{} {
+			continue
+		}
+
+		validTxs = append(validTxs, tx)
+	}
+
+	return validTxs, nil
+}
+
+// start counting from backwards to see how many transactions are in the tick data
+func getTickTransactionsNrTx(tickData types.TickData) int {
+	for i := len(tickData.TransactionDigests) - 1; i >= 0; i-- {
+		if tickData.TransactionDigests[i] != [32]byte{} {
+			return i + 1
+		}
+	}
+
+	return 0
 }
 
 func (qc *Client) SendRawTransaction(ctx context.Context, rawTx []byte) error {
