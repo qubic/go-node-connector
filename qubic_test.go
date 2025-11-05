@@ -2,9 +2,10 @@ package qubic
 
 import (
 	"encoding/hex"
+	"testing"
+
 	"github.com/qubic/go-node-connector/types"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestQubic_serializeBinary_requestIssuedAssetsByByUniverseIndex_thenProduceCorrectBinary(t *testing.T) {
@@ -16,8 +17,10 @@ func TestQubic_serializeBinary_requestIssuedAssetsByByUniverseIndex_thenProduceC
 	bytes, err := serializeBinary(request)
 	assert.NoError(t, err)
 
-	expectedHex := "03000000040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+	// Without padding: RequestType (2B) + Flags (2B) + UniverseIndex (4B) = 8 bytes
+	expectedHex := "0300000004000000"
 	assert.Equal(t, expectedHex, hex.EncodeToString(bytes))
+	assert.Equal(t, 8, len(bytes))
 }
 
 func TestQubic_serializeBinary_requestIssuedAssetsByFilter_thenProduceCorrectBinary(t *testing.T) {
@@ -28,8 +31,13 @@ func TestQubic_serializeBinary_requestIssuedAssetsByFilter_thenProduceCorrectBin
 	bytes, err := serializeBinary(request)
 	assert.NoError(t, err)
 
+	// For issuance requests, only send up to AssetName (48 bytes), without Owner/Possessor
+	// RequestType (2B) + Flags (2B) + OwnershipManagingContract (2B) + PossessionManagingContract (2B) + Issuer (32B) + AssetName (8B) = 48 bytes
 	expectedHex := "00000600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+	// Remove the Owner and Possessor fields (64 bytes) from the end
+	expectedHex = expectedHex[:96] // 48 bytes = 96 hex chars
 	assert.Equal(t, expectedHex, hex.EncodeToString(bytes))
+	assert.Equal(t, 48, len(bytes))
 }
 
 func TestQubic_serializeBinary_requestIssuedAssetsByFilter_givenIssuer_thenProduceCorrectBinary(t *testing.T) {
@@ -40,8 +48,11 @@ func TestQubic_serializeBinary_requestIssuedAssetsByFilter_givenIssuer_thenProdu
 	bytes, err := serializeBinary(request)
 	assert.NoError(t, err)
 
+	// For issuance requests, only send up to AssetName (48 bytes), without Owner/Possessor
 	expectedHex := "00000400000000000830bb63bf7d5e164ac8cbd38680630ff7670a1ebf39f7210b40bcdca253d05f000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+	expectedHex = expectedHex[:96] // Remove Owner and Possessor (64 bytes = 128 hex chars)
 	assert.Equal(t, expectedHex, hex.EncodeToString(bytes))
+	assert.Equal(t, 48, len(bytes))
 }
 
 func TestQubic_serializeBinary_requestIssuedAssetsByFilter_givenAssetName_thenProduceCorrectBinary(t *testing.T) {
@@ -52,8 +63,11 @@ func TestQubic_serializeBinary_requestIssuedAssetsByFilter_givenAssetName_thenPr
 	bytes, err := serializeBinary(request)
 	assert.NoError(t, err)
 
+	// For issuance requests, only send up to AssetName (48 bytes), without Owner/Possessor
 	expectedHex := "0000020000000000000000000000000000000000000000000000000000000000000000000000000052414e444f4d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+	expectedHex = expectedHex[:96] // Remove Owner and Possessor (64 bytes = 128 hex chars)
 	assert.Equal(t, expectedHex, hex.EncodeToString(bytes))
+	assert.Equal(t, 48, len(bytes))
 }
 
 func TestQubic_serializeBinary_requestIssuedAssetsByFilter_givenIssuerAndAssetName_thenProduceCorrectBinary(t *testing.T) {
@@ -64,8 +78,11 @@ func TestQubic_serializeBinary_requestIssuedAssetsByFilter_givenIssuerAndAssetNa
 	bytes, err := serializeBinary(request)
 	assert.NoError(t, err)
 
+	// For issuance requests, only send up to AssetName (48 bytes), without Owner/Possessor
 	expectedHex := "00000000000000000830bb63bf7d5e164ac8cbd38680630ff7670a1ebf39f7210b40bcdca253d05f434642000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+	expectedHex = expectedHex[:96] // Remove Owner and Possessor (64 bytes = 128 hex chars)
 	assert.Equal(t, expectedHex, hex.EncodeToString(bytes))
+	assert.Equal(t, 48, len(bytes))
 }
 
 func TestQubic_serializeBinary_requestOwnedAssetsByFilter_thenProduceCorrectBinary(t *testing.T) {
