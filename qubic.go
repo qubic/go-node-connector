@@ -645,75 +645,10 @@ func serializeBinary(data interface{}) ([]byte, error) {
 		return nil, nil
 	}
 
-	// Handle RequestAssetsByFilter specially to omit unnecessary fields for issuance requests
-	if filterReq, ok := data.(RequestAssetsByFilter); ok {
-		return serializeRequestAssetsByFilter(filterReq)
-	}
-
 	var buff bytes.Buffer
 	err := binary.Write(&buff, binary.LittleEndian, data)
 	if err != nil {
 		return nil, errors.Wrap(err, "writing data to buff")
-	}
-
-	return buff.Bytes(), nil
-}
-
-func serializeRequestAssetsByFilter(req RequestAssetsByFilter) ([]byte, error) {
-	var buff bytes.Buffer
-
-	// Write RequestType
-	err := binary.Write(&buff, binary.LittleEndian, req.RequestType)
-	if err != nil {
-		return nil, errors.Wrap(err, "writing RequestType")
-	}
-
-	// Write Flags
-	err = binary.Write(&buff, binary.LittleEndian, req.Flags)
-	if err != nil {
-		return nil, errors.Wrap(err, "writing Flags")
-	}
-
-	// Write OwnershipManagingContract
-	err = binary.Write(&buff, binary.LittleEndian, req.OwnershipManagingContract)
-	if err != nil {
-		return nil, errors.Wrap(err, "writing OwnershipManagingContract")
-	}
-
-	// Write PossessionManagingContract
-	err = binary.Write(&buff, binary.LittleEndian, req.PossessionManagingContract)
-	if err != nil {
-		return nil, errors.Wrap(err, "writing PossessionManagingContract")
-	}
-
-	// Write Issuer
-	err = binary.Write(&buff, binary.LittleEndian, req.Issuer)
-	if err != nil {
-		return nil, errors.Wrap(err, "writing Issuer")
-	}
-
-	// Write AssetName
-	err = binary.Write(&buff, binary.LittleEndian, req.AssetName)
-	if err != nil {
-		return nil, errors.Wrap(err, "writing AssetName")
-	}
-
-	// For issuance requests (type 0), don't send Owner and Possessor fields
-	// For ownership/possession requests, include them
-	if req.RequestType == requestTypeAssetIssuanceRecords {
-		// Only send up to AssetName (48 bytes total)
-		return buff.Bytes(), nil
-	}
-
-	// For ownership and possession requests, include Owner and Possessor
-	err = binary.Write(&buff, binary.LittleEndian, req.Owner)
-	if err != nil {
-		return nil, errors.Wrap(err, "writing Owner")
-	}
-
-	err = binary.Write(&buff, binary.LittleEndian, req.Possessor)
-	if err != nil {
-		return nil, errors.Wrap(err, "writing Possessor")
 	}
 
 	return buff.Bytes(), nil
