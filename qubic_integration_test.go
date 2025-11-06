@@ -5,22 +5,25 @@ package qubic
 
 import (
 	"context"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-var nodeIp = "45.152.160.18"
+const UniverseIndexOfRandom = 7 // can change over time
+
+var nodeIp = "5.9.16.14"
 
 func TestQubicIntegration_GetAssetIssuancesByUniverseIndexPayload(t *testing.T) {
 	client, err := NewClient(context.Background(), nodeIp, "21841")
 	assert.NoError(t, err)
 
-	issuances, err := client.GetAssetIssuancesByUniverseIndex(context.Background(), 3)
+	issuances, err := client.GetAssetIssuancesByUniverseIndex(context.Background(), UniverseIndexOfRandom)
 	assert.NoError(t, err)
 
 	assert.Len(t, issuances, 1)
 	issuance := issuances[0]
-	assert.Equal(t, 3, int(issuance.UniverseIndex))
+	assert.Equal(t, UniverseIndexOfRandom, int(issuance.UniverseIndex))
 	assert.Greater(t, issuance.Tick, uint32(20173192)) // ep 150 start
 	asset := issuance.Asset
 	assert.Equal(t, int8(0), asset.NumberOfDecimalPlaces)
@@ -44,9 +47,9 @@ func TestQubicIntegration_GetAssetOwnershipsByUniverseIndexPayload(t *testing.T)
 	assert.Greater(t, ownership.Tick, uint32(20173192)) // ep 150 start
 
 	asset := ownership.Asset
-	assert.Equal(t, asset.ManagingContractIndex, uint16(1)) // 1 = QX
-	assert.Equal(t, byte(2), asset.Type)                    // ownership type
-	assert.Equal(t, uint32(3), asset.IssuanceIndex)         // RANDOM
+	assert.Equal(t, asset.ManagingContractIndex, uint16(1))          // 1 = QX
+	assert.Equal(t, byte(2), asset.Type)                             // ownership type
+	assert.Equal(t, UniverseIndexOfRandom, int(asset.IssuanceIndex)) // RANDOM
 	// owner information
 	assert.Positive(t, asset.NumberOfUnits)
 	assert.Len(t, asset.PublicKey, 32)
@@ -84,7 +87,7 @@ func TestQubicIntegration_GetAssetIssuancesByFilter(t *testing.T) {
 	assert.Len(t, issuances, 1)
 
 	issuance := issuances[0]
-	assert.Equal(t, uint32(3), issuance.UniverseIndex)
+	assert.Equal(t, 7, int(issuance.UniverseIndex))    // universe index can change over time
 	assert.Greater(t, issuance.Tick, uint32(20173192)) // ep 150 start
 	asset := issuance.Asset
 	assert.Equal(t, int8(0), asset.NumberOfDecimalPlaces)
@@ -112,9 +115,9 @@ func TestQubicIntegration_GetAssetOwnershipsByFilter(t *testing.T) {
 	assert.Greater(t, ownership.Tick, uint32(20173192)) // ep 150 start
 
 	asset := ownership.Asset
-	assert.Equal(t, asset.ManagingContractIndex, uint16(1)) // 1 = QX
-	assert.Equal(t, byte(2), asset.Type)                    // ownership type
-	assert.Equal(t, uint32(3), asset.IssuanceIndex)         // RANDOM
+	assert.Equal(t, asset.ManagingContractIndex, uint16(1))          // 1 = QX
+	assert.Equal(t, byte(2), asset.Type)                             // ownership type
+	assert.Equal(t, UniverseIndexOfRandom, int(asset.IssuanceIndex)) // RANDOM
 	// owner information
 	assert.Positive(t, asset.NumberOfUnits)
 	assert.Len(t, asset.PublicKey, 32)
