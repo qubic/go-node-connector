@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"github.com/pkg/errors"
-	"github.com/qubic/go-node-connector/types"
 	"io"
 	"net"
 	"time"
+
+	"github.com/pkg/errors"
+	"github.com/qubic/go-node-connector/types"
 )
 
 type ReaderUnmarshaler interface {
@@ -488,10 +489,9 @@ func createAssetIssuancesByFilterRequest(issuerIdentity, assetName string) (Requ
 }
 
 type RequestAssetsByUniverseIndex struct {
-	RequestType   uint16    // 2B
-	Flags         uint16    // 2B
-	UniverseIndex uint32    // 4B
-	Padding       [104]byte // 104B
+	RequestType   uint16 // 2B
+	Flags         uint16 // 2B
+	UniverseIndex uint32 // 4B
 }
 
 func (qc *Client) GetAssetIssuancesByUniverseIndex(ctx context.Context, index uint32) (types.AssetIssuances, error) {

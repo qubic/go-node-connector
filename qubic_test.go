@@ -2,9 +2,10 @@ package qubic
 
 import (
 	"encoding/hex"
+	"testing"
+
 	"github.com/qubic/go-node-connector/types"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestQubic_serializeBinary_requestIssuedAssetsByByUniverseIndex_thenProduceCorrectBinary(t *testing.T) {
@@ -16,8 +17,10 @@ func TestQubic_serializeBinary_requestIssuedAssetsByByUniverseIndex_thenProduceC
 	bytes, err := serializeBinary(request)
 	assert.NoError(t, err)
 
-	expectedHex := "03000000040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+	// Without padding: RequestType (2B) + Flags (2B) + UniverseIndex (4B) = 8 bytes
+	expectedHex := "0300000004000000"
 	assert.Equal(t, expectedHex, hex.EncodeToString(bytes))
+	assert.Equal(t, 8, len(bytes))
 }
 
 func TestQubic_serializeBinary_requestIssuedAssetsByFilter_thenProduceCorrectBinary(t *testing.T) {
