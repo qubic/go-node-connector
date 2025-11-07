@@ -238,9 +238,9 @@ func Test_getTickTransactionsNrTx(t *testing.T) {
 		TransactionDigests: [1024][32]byte{
 			{0x01, 0x02, 0x03, 0x04},
 			{0x05, 0x06, 0x07, 0x08},
-			[32]byte{},
+			{},
 			{0x09, 0x0A, 0x0B, 0x0C},
-			[32]byte{},
+			{},
 		},
 		ContractFees: [1024]int64{},
 		Signature:    [64]byte{},
@@ -262,8 +262,8 @@ func Test_getTickTransactionsNrTx(t *testing.T) {
 		Year:          0,
 		Timelock:      [32]byte{},
 		TransactionDigests: [1024][32]byte{
-			[32]byte{},
-			[32]byte{},
+			{},
+			{},
 		},
 		ContractFees: [1024]int64{},
 		Signature:    [64]byte{},
