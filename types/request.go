@@ -32,6 +32,8 @@ const (
 	RespondAssets            = 53
 	SystemInfoRequest        = 46
 	SystemInfoResponse       = 47
+	ActiveIposRequest        = 64
+	ActiveIpoResponse        = 65
 )
 
 type RequestResponseHeader struct {

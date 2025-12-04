@@ -290,6 +290,16 @@ func (qc *Client) QuerySmartContract(ctx context.Context, rcf RequestContractFun
 	return result, nil
 }
 
+func (qc *Client) GetActiveIpos(ctx context.Context) (types.Ipos, error) {
+	var result types.Ipos
+	err := qc.sendRequest(ctx, types.ActiveIposRequest, nil, &result)
+	if err != nil {
+		return types.Ipos{}, errors.Wrap(err, "sending req to node")
+	}
+
+	return result, nil
+}
+
 const requestTypeAssetIssuanceRecords uint16 = 0
 const requestTypeAssetOwnershipRecords uint16 = 1
 const requestTypeAssetPossessionRecords uint16 = 2

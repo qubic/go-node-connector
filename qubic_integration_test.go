@@ -8,9 +8,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-const UniverseIndexOfRandom = 7 // can change over time
+const UniverseIndexOfRandom = 41 // can change over time
 
 var nodeIp = "5.9.16.14"
 
@@ -26,7 +27,7 @@ func TestQubicIntegration_GetAssetIssuancesByUniverseIndexPayload(t *testing.T) 
 	assert.Equal(t, UniverseIndexOfRandom, int(issuance.UniverseIndex))
 	assert.Greater(t, issuance.Tick, uint32(20173192)) // ep 150 start
 	asset := issuance.Asset
-	assert.Equal(t, int8(0), asset.NumberOfDecimalPlaces)
+	assert.Equal(t, 0, int(asset.NumberOfDecimalPlaces))
 	assert.Equal(t, [7]int8{82, 65, 78, 68, 79, 77, 0}, asset.Name) // RANDOM
 	assert.Equal(t, [7]int8{0, 0, 0, 0, 0, 0, 0}, asset.UnitOfMeasurement)
 	assert.Equal(t, [32]uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, asset.PublicKey)
@@ -87,8 +88,8 @@ func TestQubicIntegration_GetAssetIssuancesByFilter(t *testing.T) {
 	assert.Len(t, issuances, 1)
 
 	issuance := issuances[0]
-	assert.Equal(t, 7, int(issuance.UniverseIndex))    // universe index can change over time
-	assert.Greater(t, issuance.Tick, uint32(20173192)) // ep 150 start
+	assert.Equal(t, UniverseIndexOfRandom, int(issuance.UniverseIndex)) // universe index can change over time
+	assert.Greater(t, issuance.Tick, uint32(20173192))                  // ep 150 start
 	asset := issuance.Asset
 	assert.Equal(t, int8(0), asset.NumberOfDecimalPlaces)
 	assert.Equal(t, [7]int8{82, 65, 78, 68, 79, 77, 0}, asset.Name) // RANDOM
@@ -149,4 +150,24 @@ func TestQubicIntegration_GetAssetPossessionsByFilter(t *testing.T) {
 	// owner information
 	assert.GreaterOrEqual(t, asset.NumberOfUnits, int64(1))
 	assert.Len(t, asset.PublicKey, 32)
+}
+
+func TestQubicIntegration_GetOwnedAssets(t *testing.T) {
+	client, err := NewClient(context.Background(), nodeIp, "21841")
+	require.NoError(t, err)
+
+	// doesn't own any assets
+	assets, err := client.GetOwnedAssets(context.Background(), "RHMWVHLCFWMAHENMIHVLXHPGPGRCYTZQYZPRYBWDFDJMLXCZDFVETDUFHDSC")
+	require.NoError(t, err)
+	assert.Nil(t, assets)
+}
+
+func TestQubicIntegration_GetActiveIpos(t *testing.T) {
+	client, err := NewClient(context.Background(), nodeIp, "21841")
+	require.NoError(t, err)
+
+	// returns nil if there are no active ipos
+	ipos, err := client.GetActiveIpos(context.Background())
+	require.NoError(t, err)
+	assert.Nil(t, ipos)
 }
