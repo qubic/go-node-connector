@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-
+	"errors"
+	"fmt"
 	"io"
 	"net"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/qubic/go-node-connector/v2/types"
 )
 
@@ -41,7 +41,7 @@ func NewClient(ctx context.Context, nodeIP, nodePort string) (*Client, error) {
 
 	c.Peers, err = c.getPeers(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "getting Peers")
+		return nil, fmt.Errorf("getting Peers: %w", err)
 	}
 
 	return &c, nil
@@ -55,7 +55,7 @@ func (qc *Client) getPeers(ctx context.Context) (types.PublicPeers, error) {
 	var result types.PublicPeers
 	err := qc.sendRequest(ctx, types.CurrentTickInfoRequest, nil, &result)
 	if err != nil {
-		return types.PublicPeers{}, errors.Wrap(err, "sending req to node")
+		return types.PublicPeers{}, fmt.Errorf("sending req to node: %w", err)
 	}
 
 	return result, nil
@@ -66,12 +66,12 @@ func (qc *Client) GetIssuedAssets(ctx context.Context, id string) (types.IssuedA
 	identity := types.Identity(id)
 	pubKey, err := identity.ToPubKey(false)
 	if err != nil {
-		return types.IssuedAssets{}, errors.Wrap(err, "converting identity to public key")
+		return types.IssuedAssets{}, fmt.Errorf("converting identity to public key: %w", err)
 	}
 	var result types.IssuedAssets
 	err = qc.sendRequest(ctx, types.IssuedAssetsRequest, pubKey, &result)
 	if err != nil {
-		return types.IssuedAssets{}, errors.Wrap(err, "sending req to node")
+		return types.IssuedAssets{}, fmt.Errorf("sending req to node: %w", err)
 	}
 
 	return result, nil
@@ -83,12 +83,12 @@ func (qc *Client) GetPossessedAssets(ctx context.Context, id string) (types.Poss
 	identity := types.Identity(id)
 	pubKey, err := identity.ToPubKey(false)
 	if err != nil {
-		return types.PossessedAssets{}, errors.Wrap(err, "converting identity to public key")
+		return types.PossessedAssets{}, fmt.Errorf("converting identity to public key: %w", err)
 	}
 	var result types.PossessedAssets
 	err = qc.sendRequest(ctx, types.PossessedAssetsRequest, pubKey, &result)
 	if err != nil {
-		return types.PossessedAssets{}, errors.Wrap(err, "sending req to node")
+		return types.PossessedAssets{}, fmt.Errorf("sending req to node: %w", err)
 	}
 
 	return result, nil
@@ -99,12 +99,12 @@ func (qc *Client) GetOwnedAssets(ctx context.Context, id string) (types.OwnedAss
 	identity := types.Identity(id)
 	pubKey, err := identity.ToPubKey(false)
 	if err != nil {
-		return types.OwnedAssets{}, errors.Wrap(err, "converting identity to public key")
+		return types.OwnedAssets{}, fmt.Errorf("converting identity to public key: %w", err)
 	}
 	var result types.OwnedAssets
 	err = qc.sendRequest(ctx, types.OwnedAssetsRequest, pubKey, &result)
 	if err != nil {
-		return types.OwnedAssets{}, errors.Wrap(err, "sending req to node")
+		return types.OwnedAssets{}, fmt.Errorf("sending req to node: %w", err)
 	}
 
 	return result, nil
@@ -114,13 +114,13 @@ func (qc *Client) GetIdentity(ctx context.Context, id string) (types.AddressInfo
 	identity := types.Identity(id)
 	pubKey, err := identity.ToPubKey(false)
 	if err != nil {
-		return types.AddressInfo{}, errors.Wrap(err, "converting identity to public key")
+		return types.AddressInfo{}, fmt.Errorf("converting identity to public key: %w", err)
 	}
 
 	var result types.AddressInfo
 	err = qc.sendRequest(ctx, types.BalanceTypeRequest, pubKey, &result)
 	if err != nil {
-		return types.AddressInfo{}, errors.Wrap(err, "sending req to node")
+		return types.AddressInfo{}, fmt.Errorf("sending req to node: %w", err)
 	}
 
 	return result, nil
@@ -131,7 +131,7 @@ func (qc *Client) GetTickInfo(ctx context.Context) (types.TickInfo, error) {
 
 	err := qc.sendRequest(ctx, types.CurrentTickInfoRequest, nil, &result)
 	if err != nil {
-		return types.TickInfo{}, errors.Wrap(err, "sending req to node")
+		return types.TickInfo{}, fmt.Errorf("sending req to node: %w", err)
 	}
 
 	return result, nil
@@ -142,7 +142,7 @@ func (qc *Client) GetSystemInfo(ctx context.Context) (types.SystemInfo, error) {
 
 	err := qc.sendRequest(ctx, types.SystemInfoRequest, nil, &result)
 	if err != nil {
-		return types.SystemInfo{}, errors.Wrap(err, "sending req to node")
+		return types.SystemInfo{}, fmt.Errorf("sending req to node: %w", err)
 	}
 
 	return result, nil
@@ -158,7 +158,7 @@ func (qc *Client) GetTxStatus(ctx context.Context, tick uint32) (types.Transacti
 	var result types.TransactionStatus
 	err := qc.sendRequest(ctx, types.TxStatusRequest, request, &result)
 	if err != nil {
-		return types.TransactionStatus{}, errors.Wrap(err, "sending generic req")
+		return types.TransactionStatus{}, fmt.Errorf("sending generic req: %w", err)
 	}
 
 	return result, nil
@@ -167,11 +167,11 @@ func (qc *Client) GetTxStatus(ctx context.Context, tick uint32) (types.Transacti
 func (qc *Client) GetTickData(ctx context.Context, tickNumber uint32) (types.TickData, error) {
 	tickInfo, err := qc.GetTickInfo(ctx)
 	if err != nil {
-		return types.TickData{}, errors.Wrap(err, "getting tick info")
+		return types.TickData{}, fmt.Errorf("getting tick info: %w", err)
 	}
 
 	if tickInfo.Tick < tickNumber {
-		return types.TickData{}, errors.Errorf("Requested tick %d is in the future. Latest tick is: %d", tickNumber, tickInfo.Tick)
+		return types.TickData{}, fmt.Errorf("Requested tick %d is in the future. Latest tick is: %d", tickNumber, tickInfo.Tick)
 	}
 
 	request := struct{ Tick uint32 }{Tick: tickNumber}
@@ -179,7 +179,7 @@ func (qc *Client) GetTickData(ctx context.Context, tickNumber uint32) (types.Tic
 	var result types.TickData
 	err = qc.sendRequest(ctx, types.TickDataRequest, request, &result)
 	if err != nil {
-		return types.TickData{}, errors.Wrap(err, "sending req to node")
+		return types.TickData{}, fmt.Errorf("sending req to node: %w", err)
 	}
 
 	return result, nil
@@ -188,7 +188,7 @@ func (qc *Client) GetTickData(ctx context.Context, tickNumber uint32) (types.Tic
 func (qc *Client) GetTickTransactions(ctx context.Context, tickNumber uint32) (types.Transactions, error) {
 	tickData, err := qc.GetTickData(ctx, tickNumber)
 	if err != nil {
-		return types.Transactions{}, errors.Wrap(err, "getting tick data")
+		return types.Transactions{}, fmt.Errorf("getting tick data: %w", err)
 	}
 
 	nrTx := getTickTransactionsNrTx(tickData)
@@ -211,7 +211,7 @@ func (qc *Client) GetTickTransactions(ctx context.Context, tickNumber uint32) (t
 	var result types.Transactions
 	err = qc.sendRequest(ctx, types.TickTransactionsRequest, requestTickTransactions, &result)
 	if err != nil {
-		return nil, errors.Wrap(err, "sending transaction req")
+		return nil, fmt.Errorf("sending transaction req: %w", err)
 	}
 
 	var validTxs = make([]types.Transaction, 0, nrTx)
@@ -241,7 +241,7 @@ func getTickTransactionsNrTx(tickData types.TickData) int {
 func (qc *Client) SendRawTransaction(ctx context.Context, rawTx []byte) error {
 	err := qc.sendRequest(ctx, types.BroadcastTransaction, rawTx, nil)
 	if err != nil {
-		return errors.Wrap(err, "sending req")
+		return fmt.Errorf("sending req: %w", err)
 	}
 
 	return nil
@@ -250,11 +250,11 @@ func (qc *Client) SendRawTransaction(ctx context.Context, rawTx []byte) error {
 func (qc *Client) GetQuorumVotes(ctx context.Context, tickNumber uint32) (types.QuorumVotes, error) {
 	tickInfo, err := qc.GetTickInfo(ctx)
 	if err != nil {
-		return types.QuorumVotes{}, errors.Wrap(err, "getting tick info")
+		return types.QuorumVotes{}, fmt.Errorf("getting tick info: %w", err)
 	}
 
 	if tickInfo.Tick < tickNumber {
-		return types.QuorumVotes{}, errors.Errorf("Requested tick %d is in the future. Latest tick is: %d", tickNumber, tickInfo.Tick)
+		return types.QuorumVotes{}, fmt.Errorf("Requested tick %d is in the future. Latest tick is: %d", tickNumber, tickInfo.Tick)
 	}
 
 	request := struct {
@@ -265,7 +265,7 @@ func (qc *Client) GetQuorumVotes(ctx context.Context, tickNumber uint32) (types.
 	var result types.QuorumVotes
 	err = qc.sendRequest(ctx, types.QuorumTickRequest, request, &result)
 	if err != nil {
-		return types.QuorumVotes{}, errors.Wrap(err, "sending req to node")
+		return types.QuorumVotes{}, fmt.Errorf("sending req to node: %w", err)
 	}
 
 	return result, nil
@@ -275,7 +275,7 @@ func (qc *Client) GetComputors(ctx context.Context) (types.Computors, error) {
 	var result types.Computors
 	err := qc.sendRequest(ctx, types.ComputorsRequest, nil, &result)
 	if err != nil {
-		return types.Computors{}, errors.Wrap(err, "sending req to node")
+		return types.Computors{}, fmt.Errorf("sending req to node: %w", err)
 	}
 
 	return result, nil
@@ -285,7 +285,7 @@ func (qc *Client) QuerySmartContract(ctx context.Context, rcf RequestContractFun
 	var result types.SmartContractData
 	err := qc.sendSmartContractRequest(ctx, rcf, types.ContractFunctionRequest, requestData, &result)
 	if err != nil {
-		return types.SmartContractData{}, errors.Wrap(err, "sending req to node")
+		return types.SmartContractData{}, fmt.Errorf("sending req to node: %w", err)
 	}
 
 	return result, nil
@@ -295,7 +295,7 @@ func (qc *Client) GetActiveIpos(ctx context.Context) (types.Ipos, error) {
 	var result types.Ipos
 	err := qc.sendRequest(ctx, types.ActiveIposRequest, nil, &result)
 	if err != nil {
-		return types.Ipos{}, errors.Wrap(err, "sending req to node")
+		return types.Ipos{}, fmt.Errorf("sending req to node: %w", err)
 	}
 
 	return result, nil
@@ -305,7 +305,7 @@ func (qc *Client) GetContractIpo(ctx context.Context, contractIndex uint32) (typ
 	var result types.ContractIpo
 	err := qc.sendRequest(ctx, types.ContractIpoRequest, contractIndex, &result)
 	if err != nil {
-		return types.ContractIpo{}, errors.Wrapf(err, "requesting contract ipo for contract index %d", contractIndex)
+		return types.ContractIpo{}, fmt.Errorf("requesting contract ipo for contract index %d: %w", contractIndex, err)
 	}
 
 	return result, nil
@@ -343,13 +343,13 @@ func (qc *Client) GetAssetPossessionsByFilter(ctx context.Context, issuerIdentit
 		AssetHolderInformation{possessorIdentity, possessorContract})
 
 	if err != nil {
-		return types.AssetPossessions{}, errors.Wrap(err, "creating request object")
+		return types.AssetPossessions{}, fmt.Errorf("creating request object: %w", err)
 	}
 
 	var result types.AssetPossessions
 	err = qc.sendRequest(ctx, types.RequestAssets, request, &result)
 	if err != nil {
-		return types.AssetPossessions{}, errors.Wrap(err, "sending request to node")
+		return types.AssetPossessions{}, fmt.Errorf("sending request to node: %w", err)
 	}
 	return result, nil
 }
@@ -362,13 +362,13 @@ func (qc *Client) GetAssetOwnershipsByFilter(ctx context.Context, issuerIdentity
 		AssetHolderInformation{ownerIdentity, ownerContract})
 
 	if err != nil {
-		return types.AssetOwnerships{}, errors.Wrap(err, "creating request object")
+		return types.AssetOwnerships{}, fmt.Errorf("creating request object: %w", err)
 	}
 
 	var result types.AssetOwnerships
 	err = qc.sendRequest(ctx, types.RequestAssets, request, &result)
 	if err != nil {
-		return types.AssetOwnerships{}, errors.Wrap(err, "sending request to node")
+		return types.AssetOwnerships{}, fmt.Errorf("sending request to node: %w", err)
 	}
 	return result, nil
 }
@@ -397,7 +397,7 @@ func createByFilterRequest(requestType uint16, assetInfo AssetInformation, owner
 		identity := types.Identity(assetInfo.Identity)
 		pubKey, err := identity.ToPubKey(false)
 		if err != nil {
-			return RequestAssetsByFilter{}, errors.Wrap(err, "converting issuer identity to public key")
+			return RequestAssetsByFilter{}, fmt.Errorf("converting issuer identity to public key: %w", err)
 		}
 		issuer = pubKey
 	}
@@ -413,7 +413,7 @@ func createByFilterRequest(requestType uint16, assetInfo AssetInformation, owner
 		identity := types.Identity(ownerInfo.Identity)
 		pubKey, err := identity.ToPubKey(false)
 		if err != nil {
-			return RequestAssetsByFilter{}, errors.Wrap(err, "converting owner identity to public key")
+			return RequestAssetsByFilter{}, fmt.Errorf("converting owner identity to public key: %w", err)
 		}
 		owner = pubKey
 	}
@@ -423,7 +423,7 @@ func createByFilterRequest(requestType uint16, assetInfo AssetInformation, owner
 		identity := types.Identity(possessorInfo.Identity)
 		pubKey, err := identity.ToPubKey(false)
 		if err != nil {
-			return RequestAssetsByFilter{}, errors.Wrap(err, "converting possessor identity to public key")
+			return RequestAssetsByFilter{}, fmt.Errorf("converting possessor identity to public key: %w", err)
 		}
 		possessor = pubKey
 	}
@@ -462,13 +462,13 @@ func getFlags(ownerInfo, possessorInfo AssetHolderInformation) uint16 {
 func (qc *Client) GetAssetIssuancesByFilter(ctx context.Context, issuerIdentity, assetName string) (types.AssetIssuances, error) {
 	request, err := createAssetIssuancesByFilterRequest(issuerIdentity, assetName)
 	if err != nil {
-		return types.AssetIssuances{}, errors.Wrap(err, "creating request object")
+		return types.AssetIssuances{}, fmt.Errorf("creating request object: %w", err)
 	}
 
 	var result types.AssetIssuances
 	err = qc.sendRequest(ctx, types.RequestAssets, request, &result)
 	if err != nil {
-		return types.AssetIssuances{}, errors.Wrap(err, "sending request to node")
+		return types.AssetIssuances{}, fmt.Errorf("sending request to node: %w", err)
 	}
 	return result, nil
 }
@@ -484,7 +484,7 @@ func createAssetIssuancesByFilterRequest(issuerIdentity, assetName string) (Requ
 		identity := types.Identity(issuerIdentity)
 		pubKey, err := identity.ToPubKey(false)
 		if err != nil {
-			return RequestAssetsByFilter{}, errors.Wrap(err, "converting issuer identity to public key")
+			return RequestAssetsByFilter{}, fmt.Errorf("converting issuer identity to public key: %w", err)
 		}
 		issuer = pubKey
 	}
@@ -551,7 +551,7 @@ func (qc *Client) getAssetByUniverseIndex(ctx context.Context, index uint32, des
 
 	err := qc.sendRequest(ctx, types.RequestAssets, request, destination)
 	if err != nil {
-		return errors.Wrap(err, "sending req to node")
+		return fmt.Errorf("sending req to node: %w", err)
 	}
 	return nil
 
@@ -560,12 +560,12 @@ func (qc *Client) getAssetByUniverseIndex(ctx context.Context, index uint32, des
 func (qc *Client) sendRequest(ctx context.Context, requestType uint8, requestData interface{}, dest ReaderUnmarshaler) error {
 	packet, err := serializeRequest(ctx, requestType, requestData)
 	if err != nil {
-		return errors.Wrapf(err, "serializing request for req type %d", requestType)
+		return fmt.Errorf("serializing request for req type %d: %w", requestType, err)
 	}
 
 	err = qc.writePacketToConn(ctx, packet)
 	if err != nil {
-		return errors.Wrapf(err, "sending packet to qubic conn for req type %d", requestType)
+		return fmt.Errorf("sending packet to qubic conn for req type %d: %w", requestType, err)
 	}
 
 	// if dest is nil then we don't care about the response
@@ -575,7 +575,7 @@ func (qc *Client) sendRequest(ctx context.Context, requestType uint8, requestDat
 
 	err = qc.readPacketIntoDest(ctx, dest)
 	if err != nil {
-		return errors.Wrapf(err, "reading response for req type %d", requestType)
+		return fmt.Errorf("reading response for req type %d: %w", requestType, err)
 	}
 
 	return nil
@@ -584,12 +584,12 @@ func (qc *Client) sendRequest(ctx context.Context, requestType uint8, requestDat
 func (qc *Client) sendSmartContractRequest(ctx context.Context, rcf RequestContractFunction, requestType uint8, requestData []byte, dest ReaderUnmarshaler) error {
 	packet, err := serializesSmartContractRequest(ctx, rcf, requestType, requestData)
 	if err != nil {
-		return errors.Wrapf(err, "serializing request for req type %d", requestType)
+		return fmt.Errorf("serializing request for req type %d: %w", requestType, err)
 	}
 
 	err = qc.writePacketToConn(ctx, packet)
 	if err != nil {
-		return errors.Wrapf(err, "sending packet to qubic conn for req type %d", requestType)
+		return fmt.Errorf("sending packet to qubic conn for req type %d: %w", requestType, err)
 	}
 
 	// if dest is nil then we don't care about the response
@@ -599,7 +599,7 @@ func (qc *Client) sendSmartContractRequest(ctx context.Context, rcf RequestContr
 
 	err = qc.readPacketIntoDest(ctx, dest)
 	if err != nil {
-		return errors.Wrapf(err, "reading response for req type %d", requestType)
+		return fmt.Errorf("reading response for req type %d: %w", requestType, err)
 	}
 
 	return nil
@@ -618,13 +618,13 @@ func (qc *Client) writePacketToConn(ctx context.Context, packet []byte) error {
 	}
 	err := qc.conn.SetWriteDeadline(writeDeadline)
 	if err != nil {
-		return errors.Wrap(err, "setting write deadline")
+		return fmt.Errorf("setting write deadline: %w", err)
 	}
 	defer qc.conn.SetWriteDeadline(time.Time{})
 
 	_, err = qc.conn.Write(packet)
 	if err != nil {
-		return errors.Wrap(err, "writing serialized binary data to connection")
+		return fmt.Errorf("writing serialized binary data to connection: %w", err)
 	}
 
 	return nil
@@ -644,13 +644,13 @@ func (qc *Client) readPacketIntoDest(ctx context.Context, dest ReaderUnmarshaler
 
 	err := qc.conn.SetReadDeadline(readDeadline)
 	if err != nil {
-		return errors.Wrap(err, "setting read deadline")
+		return fmt.Errorf("setting read deadline: %w", err)
 	}
 	defer qc.conn.SetReadDeadline(time.Time{})
 
 	err = dest.UnmarshallFromReader(qc.conn)
 	if err != nil {
-		return errors.Wrap(err, "unmarshalling response")
+		return fmt.Errorf("unmarshalling response: %w", err)
 	}
 
 	return nil
@@ -669,7 +669,7 @@ func serializeBinary(data interface{}) ([]byte, error) {
 	var buff bytes.Buffer
 	err := binary.Write(&buff, binary.LittleEndian, data)
 	if err != nil {
-		return nil, errors.Wrap(err, "writing data to buff")
+		return nil, fmt.Errorf("writing data to buff: %w", err)
 	}
 
 	return buff.Bytes(), nil
@@ -678,7 +678,7 @@ func serializeBinary(data interface{}) ([]byte, error) {
 func serializeRequest(ctx context.Context, requestType uint8, requestData interface{}) ([]byte, error) {
 	serializedReqData, err := serializeBinary(requestData)
 	if err != nil {
-		return nil, errors.Wrap(err, "serializing req data")
+		return nil, fmt.Errorf("serializing req data: %w", err)
 	}
 
 	var header types.RequestResponseHeader
@@ -698,7 +698,7 @@ func serializeRequest(ctx context.Context, requestType uint8, requestData interf
 
 	serializedHeaderData, err := serializeBinary(header)
 	if err != nil {
-		return nil, errors.Wrap(err, "serializing header data")
+		return nil, fmt.Errorf("serializing header data: %w", err)
 	}
 
 	serializedPacket := make([]byte, 0, packetSize)
@@ -718,7 +718,7 @@ func serializesSmartContractRequest(ctx context.Context, rcf RequestContractFunc
 	serializedReqData := requestData
 	serializedReqContractFunction, err := serializeBinary(rcf)
 	if err != nil {
-		return nil, errors.Wrap(err, "serializing req contract function")
+		return nil, fmt.Errorf("serializing req contract function: %w", err)
 	}
 
 	var header types.RequestResponseHeader
@@ -735,7 +735,7 @@ func serializesSmartContractRequest(ctx context.Context, rcf RequestContractFunc
 
 	serializedHeaderData, err := serializeBinary(header)
 	if err != nil {
-		return nil, errors.Wrap(err, "serializing header data")
+		return nil, fmt.Errorf("serializing header data: %w", err)
 	}
 
 	serializedPacket := make([]byte, 0, packetSize)

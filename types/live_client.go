@@ -3,7 +3,8 @@ package types
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/pkg/errors"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 )
@@ -22,12 +23,12 @@ func (lsc *LiveServiceClient) GetTickInfo() (*TickInfoResponse, error) {
 
 	request, err := http.NewRequest(http.MethodGet, lsc.BaseUrl+"/v1/tick-info", nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "creating tick info request")
+		return nil, fmt.Errorf("creating tick info request: %w", err)
 	}
 
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return nil, errors.Wrap(err, "performing tick info request")
+		return nil, fmt.Errorf("performing tick info request: %w", err)
 	}
 	defer response.Body.Close()
 
@@ -38,7 +39,7 @@ func (lsc *LiveServiceClient) GetTickInfo() (*TickInfoResponse, error) {
 	var responseBody TickInfoResponse
 	err = json.NewDecoder(response.Body).Decode(&responseBody)
 	if err != nil {
-		return nil, errors.Wrap(err, "decoding tick info response")
+		return nil, fmt.Errorf("decoding tick info response: %w", err)
 	}
 
 	return &responseBody, nil
@@ -52,7 +53,7 @@ func (lsc *LiveServiceClient) BroadcastTransaction(tx Transaction) (*Transaction
 
 	encodedTransaction, err := tx.EncodeToBase64()
 	if err != nil {
-		return nil, errors.Wrap(err, "encoding transaction")
+		return nil, fmt.Errorf("encoding transaction: %w", err)
 	}
 
 	requestPayload := TransactionBroadcastRequest{
@@ -62,17 +63,17 @@ func (lsc *LiveServiceClient) BroadcastTransaction(tx Transaction) (*Transaction
 	buff := new(bytes.Buffer)
 	err = json.NewEncoder(buff).Encode(requestPayload)
 	if err != nil {
-		return nil, errors.Wrap(err, "encoding transaction broadcast payload")
+		return nil, fmt.Errorf("encoding transaction broadcast payload: %w", err)
 	}
 
 	request, err := http.NewRequest(http.MethodPost, lsc.BaseUrl+"/v1/broadcast-transaction", buff)
 	if err != nil {
-		return nil, errors.Wrap(err, "creating transaction broadcast request")
+		return nil, fmt.Errorf("creating transaction broadcast request: %w", err)
 	}
 
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return nil, errors.Wrap(err, "performing transaction broadcast request")
+		return nil, fmt.Errorf("performing transaction broadcast request: %w", err)
 	}
 	defer response.Body.Close()
 
@@ -83,7 +84,7 @@ func (lsc *LiveServiceClient) BroadcastTransaction(tx Transaction) (*Transaction
 	var responseBody TransactionBroadcastResponse
 	err = json.NewDecoder(response.Body).Decode(&responseBody)
 	if err != nil {
-		return nil, errors.Wrap(err, "decoding transaction broadcast response")
+		return nil, fmt.Errorf("decoding transaction broadcast response: %w", err)
 	}
 
 	return &responseBody, nil
@@ -93,11 +94,11 @@ func (lsc *LiveServiceClient) handleHttpError(responseBody io.Reader) error {
 
 	data, err := io.ReadAll(responseBody)
 	if err != nil {
-		return errors.Wrap(err, "reading error body")
+		return fmt.Errorf("reading error body: %w", err)
 	}
 	errorString := string(data)
 
-	return errors.Errorf("response status not OK : %s", errorString)
+	return fmt.Errorf("response status not OK : %s", errorString)
 }
 
 type TransactionBroadcastRequest struct {

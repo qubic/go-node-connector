@@ -2,7 +2,7 @@ package types
 
 import (
 	"encoding/binary"
-	"github.com/pkg/errors"
+	"fmt"
 	"io"
 )
 
@@ -50,7 +50,7 @@ func (qv *QuorumVotes) UnmarshallFromReader(r io.Reader) error {
 		var header RequestResponseHeader
 		err := binary.Read(r, binary.BigEndian, &header)
 		if err != nil {
-			return errors.Wrap(err, "reading header")
+			return fmt.Errorf("reading header: %w", err)
 		}
 
 		if header.Type == EndResponse {
@@ -59,12 +59,12 @@ func (qv *QuorumVotes) UnmarshallFromReader(r io.Reader) error {
 
 		var qtd QuorumTickVote
 		if header.Type != QuorumTickResponse {
-			return errors.Errorf("Invalid header type, expected %d, found %d", QuorumTickResponse, header.Type)
+			return fmt.Errorf("Invalid header type, expected %d, found %d", QuorumTickResponse, header.Type)
 		}
 
 		err = binary.Read(r, binary.LittleEndian, &qtd)
 		if err != nil {
-			return errors.Wrap(err, "reading quorum tick data from reader")
+			return fmt.Errorf("reading quorum tick data from reader: %w", err)
 		}
 
 		*qv = append(*qv, qtd)

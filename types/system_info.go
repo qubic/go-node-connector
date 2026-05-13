@@ -2,9 +2,8 @@ package types
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
-
-	"github.com/pkg/errors"
 )
 
 type SystemInfo struct {
@@ -46,7 +45,7 @@ func (si *SystemInfo) UnmarshallFromReader(r io.Reader) error {
 	var header RequestResponseHeader
 	err := binary.Read(r, binary.LittleEndian, &header)
 	if err != nil {
-		return errors.Wrap(err, "reading system info response header")
+		return fmt.Errorf("reading system info response header: %w", err)
 	}
 
 	if header.Type == EndResponse {
@@ -54,12 +53,12 @@ func (si *SystemInfo) UnmarshallFromReader(r io.Reader) error {
 	}
 
 	if header.Type != SystemInfoResponse {
-		return errors.Errorf("invalid header type. expected %d, found %d", SystemInfoResponse, header.Type)
+		return fmt.Errorf("invalid header type. expected %d, found %d", SystemInfoResponse, header.Type)
 	}
 
 	err = binary.Read(r, binary.LittleEndian, si)
 	if err != nil {
-		return errors.Wrap(err, "reading system information response")
+		return fmt.Errorf("reading system information response: %w", err)
 	}
 	return nil
 }

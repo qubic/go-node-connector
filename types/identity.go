@@ -2,10 +2,11 @@ package types
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
-	"github.com/cloudflare/circl/xof/k12"
-	"github.com/pkg/errors"
 	"unicode"
+
+	"github.com/cloudflare/circl/xof/k12"
 )
 
 const ArbitratorIdentity = "AFZPUAIYVPNUYGJRQVLUKOPPVLHAZQTGLYAAUUNBXFTVTAMSBKQBLEIEPCVJ"
@@ -20,7 +21,6 @@ func (i *Identity) FromPubKey(pubKey [32]byte, isLowerCase bool) (Identity, erro
 		letter = 'a'
 	}
 
-
 	var identity [60]byte
 
 	for i := 0; i < 4; i++ {
@@ -34,13 +34,13 @@ func (i *Identity) FromPubKey(pubKey [32]byte, isLowerCase bool) (Identity, erro
 	h := k12.NewDraft10([]byte{})
 	_, err := h.Write(pubKey[:])
 	if err != nil {
-		return "", errors.Wrap(err, "writing msg to k12")
+		return "", fmt.Errorf("writing msg to k12: %w", err)
 	}
 
 	var identityBytesChecksum [3]byte
 	_, err = h.Read(identityBytesChecksum[:])
 	if err != nil {
-		return "", errors.Wrap(err, "reading hash from k12")
+		return "", fmt.Errorf("reading hash from k12: %w", err)
 	}
 
 	var identityBytesChecksumInt uint64
@@ -75,8 +75,8 @@ func (i *Identity) ToPubKey(isLowerCase bool) ([32]byte, error) {
 
 	for i := 0; i < 4; i++ {
 		for j := 13; j >= 0; j-- {
-			if idBytes[i * 14 + j] < letters[0] || idBytes[i * 14 + j] > letters[1] {
-				return [32]byte{}, errors.New( "invalid conversion")
+			if idBytes[i*14+j] < letters[0] || idBytes[i*14+j] > letters[1] {
+				return [32]byte{}, errors.New("invalid conversion")
 			}
 
 			im := binary.LittleEndian.Uint64(pubKey[i*8 : (i+1)*8])

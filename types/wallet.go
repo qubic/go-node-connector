@@ -3,10 +3,11 @@ package types
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"fmt"
+	"math/big"
+
 	"github.com/cloudflare/circl/ecc/fourq"
 	"github.com/cloudflare/circl/xof/k12"
-	"github.com/pkg/errors"
-	"math/big"
 )
 
 const seedLength = 55
@@ -20,18 +21,18 @@ type Wallet struct {
 func NewWallet(seed string) (Wallet, error) {
 	privKey, err := getPrivateKey(seed)
 	if err != nil {
-		return Wallet{}, errors.Wrap(err, "getting privKey")
+		return Wallet{}, fmt.Errorf("getting privKey: %w", err)
 	}
 
 	pubKey, err := getPublicKey(privKey)
 	if err != nil {
-		return Wallet{}, errors.Wrap(err, "getting pubkey")
+		return Wallet{}, fmt.Errorf("getting pubkey: %w", err)
 	}
 
 	var id Identity
 	id, err = id.FromPubKey(pubKey, false)
 	if err != nil {
-		return Wallet{}, errors.Wrap(err, "getting identity string")
+		return Wallet{}, fmt.Errorf("getting identity string: %w", err)
 	}
 
 	return Wallet{
@@ -44,19 +45,19 @@ func NewWallet(seed string) (Wallet, error) {
 func getPrivateKey(seed string) ([32]byte, error) {
 	subseed, err := GetSubSeed(seed)
 	if err != nil {
-		return [32]byte{}, errors.Wrap(err, "getting subseed")
+		return [32]byte{}, fmt.Errorf("getting subseed: %w", err)
 	}
 
 	h := k12.NewDraft10([]byte{})
 	_, err = h.Write(subseed[:])
 	if err != nil {
-		return [32]byte{}, errors.Wrap(err, "writing msg to k12")
+		return [32]byte{}, fmt.Errorf("writing msg to k12: %w", err)
 	}
 
 	var privKey [32]byte
 	_, err = h.Read(privKey[:])
 	if err != nil {
-		return [32]byte{}, errors.Wrap(err, "reading hash from k12")
+		return [32]byte{}, fmt.Errorf("reading hash from k12: %w", err)
 	}
 
 	return privKey, nil
@@ -68,7 +69,7 @@ func getPublicKey(pk [32]byte) ([32]byte, error) {
 
 	pubKey, err := encode(p)
 	if err != nil {
-		return [32]byte{}, errors.Wrap(err, "encoding fourq point to pubkey")
+		return [32]byte{}, fmt.Errorf("encoding fourq point to pubkey: %w", err)
 	}
 
 	return pubKey, nil
@@ -113,7 +114,7 @@ func encode(p fourq.Point) ([32]byte, error) {
 
 func GetSubSeed(seed string) ([32]byte, error) {
 	if len(seed) != seedLength {
-		return [32]byte{}, errors.Errorf("Invalid seed length. Expected %d, got: %d", seedLength, len(seed))
+		return [32]byte{}, fmt.Errorf("Invalid seed length. Expected %d, got: %d", seedLength, len(seed))
 	}
 
 	var seedBytes [seedLength]byte
@@ -124,13 +125,13 @@ func GetSubSeed(seed string) ([32]byte, error) {
 	h := k12.NewDraft10([]byte{})
 	_, err := h.Write(seedBytes[:])
 	if err != nil {
-		return [32]byte{}, errors.Wrap(err, "writing msg to k12")
+		return [32]byte{}, fmt.Errorf("writing msg to k12: %w", err)
 	}
 
 	var subseed [32]byte
 	_, err = h.Read(subseed[:])
 	if err != nil {
-		return [32]byte{}, errors.Wrap(err, "reading hash from k12")
+		return [32]byte{}, fmt.Errorf("reading hash from k12: %w", err)
 	}
 
 	return subseed, nil
