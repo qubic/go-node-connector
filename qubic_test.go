@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/qubic/go-node-connector/types"
+	"github.com/qubic/go-node-connector/v2/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -235,14 +235,14 @@ func Test_getTickTransactionsNrTx(t *testing.T) {
 		Month:         0,
 		Year:          0,
 		Timelock:      [32]byte{},
-		TransactionDigests: [1024][32]byte{
+		TransactionDigests: [types.NumberOfTransactionsPerTick][32]byte{
 			{0x01, 0x02, 0x03, 0x04},
 			{0x05, 0x06, 0x07, 0x08},
 			{},
 			{0x09, 0x0A, 0x0B, 0x0C},
 			{},
 		},
-		ContractFees: [1024]int64{},
+		ContractFees: [types.NumberOfTransactionsPerTick]int64{},
 		Signature:    [64]byte{},
 	}
 
@@ -261,11 +261,11 @@ func Test_getTickTransactionsNrTx(t *testing.T) {
 		Month:         0,
 		Year:          0,
 		Timelock:      [32]byte{},
-		TransactionDigests: [1024][32]byte{
+		TransactionDigests: [types.NumberOfTransactionsPerTick][32]byte{
 			{},
 			{},
 		},
-		ContractFees: [1024]int64{},
+		ContractFees: [types.NumberOfTransactionsPerTick]int64{},
 		Signature:    [64]byte{},
 	}
 

@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	NumberOfTransactionsPerTick = 1024
+	NumberOfTransactionsPerTick = 4096
 )
 
 type TickData struct {
@@ -23,7 +23,7 @@ type TickData struct {
 	Year               uint8
 	Timelock           [32]byte
 	TransactionDigests [NumberOfTransactionsPerTick][32]byte `json:",omitempty"`
-	ContractFees       [1024]int64                           `json:",omitempty"`
+	ContractFees       [NumberOfTransactionsPerTick]int64    `json:",omitempty"`
 	Signature          [SignatureSize]byte
 }
 

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
-	"github.com/qubic/go-node-connector/types"
+	"github.com/qubic/go-node-connector/v2/types"
 	"github.com/silenceper/pool"
 	"io"
 	"math/rand"

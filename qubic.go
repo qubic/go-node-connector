@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/qubic/go-node-connector/types"
+	"github.com/qubic/go-node-connector/v2/types"
 )
 
 type ReaderUnmarshaler interface {
