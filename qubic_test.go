@@ -242,7 +242,7 @@ func Test_getTickTransactionsNrTx(t *testing.T) {
 			{0x09, 0x0A, 0x0B, 0x0C},
 			{},
 		},
-		ContractFees: [types.NumberOfTransactionsPerTick]int64{},
+		ContractFees: [types.MaxNumberOfContracts]int64{},
 		Signature:    [64]byte{},
 	}
 
@@ -265,7 +265,7 @@ func Test_getTickTransactionsNrTx(t *testing.T) {
 			{},
 			{},
 		},
-		ContractFees: [types.NumberOfTransactionsPerTick]int64{},
+		ContractFees: [types.MaxNumberOfContracts]int64{},
 		Signature:    [64]byte{},
 	}
 
