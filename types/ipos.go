@@ -4,8 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-
-	"github.com/pkg/errors"
 )
 
 type Ipo struct {
@@ -45,7 +43,7 @@ func (ipos *Ipos) UnmarshallFromReader(r io.Reader) error {
 		}
 
 		if header.Type != ActiveIpoResponse {
-			return errors.Errorf("invalid header type, expected %d, found %d", ActiveIpoResponse, header.Type)
+			return fmt.Errorf("invalid header type, expected %d, found %d", ActiveIpoResponse, header.Type)
 		}
 
 		var ipo Ipo
@@ -72,16 +70,16 @@ func (ci *ContractIpo) UnmarshallFromReader(r io.Reader) error {
 
 	err := binary.Read(r, binary.BigEndian, &header)
 	if err != nil {
-		return errors.Wrap(err, "reading header")
+		return fmt.Errorf("reading header: %w", err)
 	}
 
 	if header.Type != ContractIpoResponse {
-		return errors.Errorf("Invalid header type, expected %d, found %d", ContractIpoResponse, header.Type)
+		return fmt.Errorf("Invalid header type, expected %d, found %d", ContractIpoResponse, header.Type)
 	}
 
 	err = binary.Read(r, binary.LittleEndian, ci)
 	if err != nil {
-		return errors.Wrap(err, "reading contract ipo data from reader")
+		return fmt.Errorf("reading contract ipo data from reader: %w", err)
 	}
 
 	return nil

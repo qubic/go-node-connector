@@ -3,7 +3,7 @@ package types
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/pkg/errors"
+	"fmt"
 )
 
 const SendManyMaxTransfers = 25
@@ -26,12 +26,12 @@ type SendManyTransfer struct {
 
 func (smp *SendManyTransferPayload) AddTransfer(transfer SendManyTransfer) error {
 	if smp.filledTransfers == SendManyMaxTransfers {
-		return errors.Errorf("max %d send many transfers allowed", SendManyMaxTransfers)
+		return fmt.Errorf("max %d send many transfers allowed", SendManyMaxTransfers)
 	}
 
 	address, err := transfer.AddressID.ToPubKey(false)
 	if err != nil {
-		return errors.Wrap(err, "converting address id to byte form")
+		return fmt.Errorf("converting address id to byte form: %w", err)
 	}
 
 	smp.addresses[smp.filledTransfers] = address
@@ -44,13 +44,13 @@ func (smp *SendManyTransferPayload) AddTransfer(transfer SendManyTransfer) error
 
 func (smp *SendManyTransferPayload) AddTransfers(transfers []SendManyTransfer) error {
 	if int(smp.filledTransfers)+len(transfers) > SendManyMaxTransfers {
-		return errors.Errorf("max %d send many transfers allowed", SendManyMaxTransfers)
+		return fmt.Errorf("max %d send many transfers allowed", SendManyMaxTransfers)
 	}
 
 	for _, transfer := range transfers {
 		err := smp.AddTransfer(transfer)
 		if err != nil {
-			return errors.Wrapf(err, "adding transfer %+v", transfer)
+			return fmt.Errorf("adding transfer %+v: %w", transfer, err)
 		}
 	}
 
@@ -66,7 +66,7 @@ func (smp *SendManyTransferPayload) GetTransfers() ([]SendManyTransfer, error) {
 		var addrID Identity
 		addrID, err := addrID.FromPubKey(address, false)
 		if err != nil {
-			return nil, errors.Wrapf(err, "getting address identity from bytes %v", address)
+			return nil, fmt.Errorf("getting address identity from bytes %v: %w", address, err)
 		}
 		transfers = append(transfers, SendManyTransfer{AddressID: addrID, Amount: smp.amounts[index]})
 	}
@@ -83,12 +83,12 @@ func (smp *SendManyTransferPayload) MarshallBinary() ([]byte, error) {
 	var buff bytes.Buffer
 	err := binary.Write(&buff, binary.LittleEndian, smp.addresses)
 	if err != nil {
-		return nil, errors.Wrap(err, "writing addresses to buf")
+		return nil, fmt.Errorf("writing addresses to buf: %w", err)
 	}
 
 	err = binary.Write(&buff, binary.LittleEndian, smp.amounts)
 	if err != nil {
-		return nil, errors.Wrap(err, "writing amounts to buf")
+		return nil, fmt.Errorf("writing amounts to buf: %w", err)
 	}
 
 	return buff.Bytes(), nil
@@ -99,12 +99,12 @@ func (smp *SendManyTransferPayload) UnmarshallBinary(b []byte) error {
 
 	err := binary.Read(reader, binary.LittleEndian, &smp.addresses)
 	if err != nil {
-		return errors.Wrap(err, "reading addresses from reader")
+		return fmt.Errorf("reading addresses from reader: %w", err)
 	}
 
 	err = binary.Read(reader, binary.LittleEndian, &smp.amounts)
 	if err != nil {
-		return errors.Wrap(err, "reading amounts from reader")
+		return fmt.Errorf("reading amounts from reader: %w", err)
 	}
 
 	totalAmount := int64(0)
@@ -123,16 +123,16 @@ func NewSendManyTransferTransaction(sourceID string, targetTick uint32, payload 
 	destID := Identity(QutilAddress)
 	srcPubKey, err := srcID.ToPubKey(false)
 	if err != nil {
-		return Transaction{}, errors.Wrap(err, "converting src id string to pubkey")
+		return Transaction{}, fmt.Errorf("converting src id string to pubkey: %w", err)
 	}
 	destPubKey, err := destID.ToPubKey(false)
 	if err != nil {
-		return Transaction{}, errors.Wrap(err, "converting dest id string to pubkey")
+		return Transaction{}, fmt.Errorf("converting dest id string to pubkey: %w", err)
 	}
 
 	input, err := payload.MarshallBinary()
 	if err != nil {
-		return Transaction{}, errors.Wrap(err, "binary marshalling payload")
+		return Transaction{}, fmt.Errorf("binary marshalling payload: %w", err)
 	}
 
 	return Transaction{

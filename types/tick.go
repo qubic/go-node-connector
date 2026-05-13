@@ -2,12 +2,13 @@ package types
 
 import (
 	"encoding/binary"
-	"github.com/pkg/errors"
+	"fmt"
 	"io"
 )
 
 const (
-	NumberOfTransactionsPerTick = 1024
+	NumberOfTransactionsPerTick = 4096
+	MaxNumberOfContracts        = 1024
 )
 
 type TickData struct {
@@ -23,7 +24,7 @@ type TickData struct {
 	Year               uint8
 	Timelock           [32]byte
 	TransactionDigests [NumberOfTransactionsPerTick][32]byte `json:",omitempty"`
-	ContractFees       [1024]int64                           `json:",omitempty"`
+	ContractFees       [MaxNumberOfContracts]int64           `json:",omitempty"`
 	Signature          [SignatureSize]byte
 }
 
@@ -32,7 +33,7 @@ func (td *TickData) UnmarshallFromReader(r io.Reader) error {
 
 	err := binary.Read(r, binary.BigEndian, &header)
 	if err != nil {
-		return errors.Wrap(err, "reading tick data from reader")
+		return fmt.Errorf("reading tick data from reader: %w", err)
 	}
 
 	if header.Type == EndResponse {
@@ -40,77 +41,77 @@ func (td *TickData) UnmarshallFromReader(r io.Reader) error {
 	}
 
 	if header.Type != BroadcastFutureTickData {
-		return errors.Errorf("Invalid header type, expected %d, found %d", BroadcastFutureTickData, header.Type)
+		return fmt.Errorf("Invalid header type, expected %d, found %d", BroadcastFutureTickData, header.Type)
 	}
 
 	err = binary.Read(r, binary.LittleEndian, &td.ComputorIndex)
 	if err != nil {
-		return errors.Wrap(err, "reading computor index")
+		return fmt.Errorf("reading computor index: %w", err)
 	}
 
 	err = binary.Read(r, binary.LittleEndian, &td.Epoch)
 	if err != nil {
-		return errors.Wrap(err, "reading epoch")
+		return fmt.Errorf("reading epoch: %w", err)
 	}
 
 	err = binary.Read(r, binary.LittleEndian, &td.Tick)
 	if err != nil {
-		return errors.Wrap(err, "reading tick")
+		return fmt.Errorf("reading tick: %w", err)
 	}
 
 	err = binary.Read(r, binary.LittleEndian, &td.Millisecond)
 	if err != nil {
-		return errors.Wrap(err, "reading millisecond")
+		return fmt.Errorf("reading millisecond: %w", err)
 	}
 
 	err = binary.Read(r, binary.LittleEndian, &td.Second)
 	if err != nil {
-		return errors.Wrap(err, "reading second")
+		return fmt.Errorf("reading second: %w", err)
 	}
 
 	err = binary.Read(r, binary.LittleEndian, &td.Minute)
 	if err != nil {
-		return errors.Wrap(err, "reading minute")
+		return fmt.Errorf("reading minute: %w", err)
 	}
 
 	err = binary.Read(r, binary.LittleEndian, &td.Hour)
 	if err != nil {
-		return errors.Wrap(err, "reading hour")
+		return fmt.Errorf("reading hour: %w", err)
 	}
 
 	err = binary.Read(r, binary.LittleEndian, &td.Day)
 	if err != nil {
-		return errors.Wrap(err, "reading day")
+		return fmt.Errorf("reading day: %w", err)
 	}
 
 	err = binary.Read(r, binary.LittleEndian, &td.Month)
 	if err != nil {
-		return errors.Wrap(err, "reading month")
+		return fmt.Errorf("reading month: %w", err)
 	}
 
 	err = binary.Read(r, binary.LittleEndian, &td.Year)
 	if err != nil {
-		return errors.Wrap(err, "reading year")
+		return fmt.Errorf("reading year: %w", err)
 	}
 
 	err = binary.Read(r, binary.LittleEndian, &td.Timelock)
 	if err != nil {
-		return errors.Wrap(err, "reading timelock")
+		return fmt.Errorf("reading timelock: %w", err)
 	}
 
 	err = binary.Read(r, binary.LittleEndian, &td.TransactionDigests)
 	if err != nil {
-		return errors.Wrap(err, "reading transaction digests")
+		return fmt.Errorf("reading transaction digests: %w", err)
 	}
 
 	err = binary.Read(r, binary.LittleEndian, &td.ContractFees)
 	if err != nil {
-		return errors.Wrap(err, "reading contract fees")
+		return fmt.Errorf("reading contract fees: %w", err)
 	}
 
 	err = binary.Read(r, binary.LittleEndian, &td.Signature)
 	if err != nil {
-		return errors.Wrap(err, "reading signature")
+		return fmt.Errorf("reading signature: %w", err)
 	}
 
 	return nil
@@ -139,25 +140,25 @@ func (ti *TickInfo) UnmarshallFromReader(r io.Reader) error {
 
 		err := binary.Read(r, binary.BigEndian, &header)
 		if err != nil {
-			return errors.Wrap(err, "reading header")
+			return fmt.Errorf("reading header: %w", err)
 		}
 
 		if header.Type == 0 {
 			ignoredBytes := make([]byte, header.GetSize()-uint32(binary.Size(header)))
 			_, err := r.Read(ignoredBytes)
 			if err != nil {
-				return errors.Wrap(err, "reading ignored bytes")
+				return fmt.Errorf("reading ignored bytes: %w", err)
 			}
 			continue
 		}
 
 		if header.Type != CurrentTickInfoResponse {
-			return errors.Errorf("Invalid header type, expected %d, found %d", CurrentTickInfoResponse, header.Type)
+			return fmt.Errorf("Invalid header type, expected %d, found %d", CurrentTickInfoResponse, header.Type)
 		}
 
 		err = binary.Read(r, binary.LittleEndian, ti)
 		if err != nil {
-			return errors.Wrap(err, "reading tick data from reader")
+			return fmt.Errorf("reading tick data from reader: %w", err)
 		}
 
 		break

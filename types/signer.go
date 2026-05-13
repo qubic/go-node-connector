@@ -1,7 +1,9 @@
 package types
 
 import (
-	"github.com/pkg/errors"
+	"errors"
+	"fmt"
+
 	"github.com/qubic/go-schnorrq"
 )
 
@@ -15,7 +17,7 @@ func NewSigner(seed string) (*Signer, error) {
 
 	wallet, err := NewWallet(seed)
 	if err != nil {
-		return nil, errors.Wrap(err, "creating wallet")
+		return nil, fmt.Errorf("creating wallet: %w", err)
 	}
 
 	pubKey := wallet.PubKey
@@ -35,17 +37,17 @@ func (s *Signer) SignTx(tx Transaction) (Transaction, error) {
 
 	subSeed, err := GetSubSeed(s.seed)
 	if err != nil {
-		return Transaction{}, errors.Wrap(err, "getting sub-seed")
+		return Transaction{}, fmt.Errorf("getting sub-seed: %w", err)
 	}
 
 	unsignedDigest, err := tx.GetUnsignedDigest()
 	if err != nil {
-		return Transaction{}, errors.Wrap(err, "getting unsigned transaction digest")
+		return Transaction{}, fmt.Errorf("getting unsigned transaction digest: %w", err)
 	}
 
 	signature, err := schnorrq.Sign(subSeed, tx.SourcePublicKey, unsignedDigest)
 	if err != nil {
-		return Transaction{}, errors.Wrap(err, "creating signature")
+		return Transaction{}, fmt.Errorf("creating signature: %w", err)
 	}
 
 	return Transaction{

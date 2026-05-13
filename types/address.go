@@ -2,12 +2,12 @@ package types
 
 import (
 	"encoding/binary"
-	"github.com/pkg/errors"
+	"fmt"
 	"io"
 )
 
 const (
-	SpectrumDepth       = 24
+	SpectrumDepth = 24
 )
 
 type AddressData struct {
@@ -32,16 +32,16 @@ func (ai *AddressInfo) UnmarshallFromReader(r io.Reader) error {
 
 	err := binary.Read(r, binary.BigEndian, &header)
 	if err != nil {
-		return errors.Wrap(err, "reading header")
+		return fmt.Errorf("reading header: %w", err)
 	}
 
 	if header.Type != BalanceTypeResponse {
-		return errors.Errorf("Invalid header type, expected %d, found %d", BalanceTypeResponse, header.Type)
+		return fmt.Errorf("Invalid header type, expected %d, found %d", BalanceTypeResponse, header.Type)
 	}
 
 	err = binary.Read(r, binary.LittleEndian, ai)
 	if err != nil {
-		return errors.Wrap(err, "reading addr info data from reader")
+		return fmt.Errorf("reading addr info data from reader: %w", err)
 	}
 
 	return nil

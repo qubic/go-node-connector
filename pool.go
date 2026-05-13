@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/qubic/go-node-connector/types"
-	"github.com/silenceper/pool"
 	"io"
 	"math/rand"
 	"net/http"
 	"time"
+
+	"github.com/qubic/go-node-connector/v2/types"
+	"github.com/silenceper/pool"
 )
 
 type PoolConfig struct {
@@ -36,7 +36,7 @@ func NewPoolConnection(config PoolConfig) (*Pool, error) {
 	}
 	chPool, err := pool.NewChannelPool(&cfg)
 	if err != nil {
-		return nil, errors.Wrap(err, "creating pool")
+		return nil, fmt.Errorf("creating pool: %w", err)
 	}
 
 	p := Pool{chPool: chPool}
@@ -51,7 +51,7 @@ type Pool struct {
 func (p *Pool) Get() (*Client, error) {
 	v, err := p.chPool.Get()
 	if err != nil {
-		return nil, errors.Wrap(err, "getting qubic pooled client connection")
+		return nil, fmt.Errorf("getting qubic pooled client connection: %w", err)
 	}
 	return v.(*Client), nil
 }
@@ -59,7 +59,7 @@ func (p *Pool) Get() (*Client, error) {
 func (p *Pool) Put(c *Client) error {
 	err := p.chPool.Put(c)
 	if err != nil {
-		return errors.Wrap(err, "putting qubic pooled client connection")
+		return fmt.Errorf("putting qubic pooled client connection: %w", err)
 	}
 
 	return nil
@@ -68,7 +68,7 @@ func (p *Pool) Put(c *Client) error {
 func (p *Pool) Close(c *Client) error {
 	err := p.chPool.Close(c)
 	if err != nil {
-		return errors.Wrap(err, "closing qubic pool")
+		return fmt.Errorf("closing qubic pool: %w", err)
 	}
 
 	return nil
@@ -90,12 +90,12 @@ func (pcf *poolConnectionFactory) Connect() (interface{}, error) {
 
 	peer, err := pcf.getNewRandomPeer(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "getting new random peer")
+		return nil, fmt.Errorf("getting new random peer: %w", err)
 	}
 
 	client, err := NewClient(ctx, peer, pcf.nodePort)
 	if err != nil {
-		return nil, errors.Wrap(err, "creating qubic client")
+		return nil, fmt.Errorf("creating qubic client: %w", err)
 	}
 
 	fmt.Printf("connected to: %s\n", peer)
@@ -121,23 +121,23 @@ type nodeResponse struct {
 func (pcf *poolConnectionFactory) getNewRandomPeer(ctx context.Context) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pcf.nodeFetcherUrl, nil)
 	if err != nil {
-		return "", errors.Wrap(err, "creating new request")
+		return "", fmt.Errorf("creating new request: %w", err)
 	}
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", errors.Wrap(err, "getting peers from node fetcher")
+		return "", fmt.Errorf("getting peers from node fetcher: %w", err)
 	}
 
 	var resp statusResponse
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return "", errors.Wrap(err, "reading response body")
+		return "", fmt.Errorf("reading response body: %w", err)
 	}
 
 	err = json.Unmarshal(body, &resp)
 	if err != nil {
-		return "", errors.Wrap(err, "unmarshalling response")
+		return "", fmt.Errorf("unmarshalling response: %w", err)
 	}
 
 	peer := resp.ReliableNodes[rand.Intn(len(resp.ReliableNodes))]

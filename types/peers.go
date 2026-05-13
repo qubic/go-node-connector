@@ -2,7 +2,7 @@ package types
 
 import (
 	"encoding/binary"
-	"github.com/pkg/errors"
+	"fmt"
 	"io"
 	"net"
 )
@@ -13,18 +13,18 @@ func (pp *PublicPeers) UnmarshallFromReader(r io.Reader) error {
 	var header RequestResponseHeader
 	err := binary.Read(r, binary.BigEndian, &header)
 	if err != nil {
-		return errors.Wrap(err, "reading header")
+		return fmt.Errorf("reading header: %w", err)
 	}
 
 	if header.Type != ExchangePublicPeers {
-		return errors.Errorf("Invalid header type, expected %d, found %d", ExchangePublicPeers, header.Type)
+		return fmt.Errorf("Invalid header type, expected %d, found %d", ExchangePublicPeers, header.Type)
 	}
 
 	var peers [4][4]byte
 
 	err = binary.Read(r, binary.LittleEndian, &peers)
 	if err != nil {
-		return errors.Wrap(err, "reading public peers from reader")
+		return fmt.Errorf("reading public peers from reader: %w", err)
 	}
 
 	for _, peer := range peers {
@@ -42,13 +42,13 @@ func (pp *PublicPeers) UnmarshallFromReader(r io.Reader) error {
 	var nextHeader RequestResponseHeader
 	err = binary.Read(r, binary.BigEndian, &nextHeader)
 	if err != nil {
-		return errors.Wrap(err, "reading header")
+		return fmt.Errorf("reading header: %w", err)
 	}
 
 	ignoredBytes := make([]byte, nextHeader.GetSize()-uint32(binary.Size(nextHeader)))
 	_, err = r.Read(ignoredBytes)
 	if err != nil {
-		return errors.Wrap(err, "reading ignored bytes")
+		return fmt.Errorf("reading ignored bytes: %w", err)
 	}
 
 	return nil

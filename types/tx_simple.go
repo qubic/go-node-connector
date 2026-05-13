@@ -1,17 +1,17 @@
 package types
 
-import "github.com/pkg/errors"
+import "fmt"
 
 func NewSimpleTransferTransaction(sourceID, destinationID string, amount int64, targetTick uint32) (Transaction, error) {
 	srcID := Identity(sourceID)
 	destID := Identity(destinationID)
 	srcPubKey, err := srcID.ToPubKey(false)
 	if err != nil {
-		return Transaction{}, errors.Wrap(err, "converting src id string to pubkey")
+		return Transaction{}, fmt.Errorf("converting src id string to pubkey: %w", err)
 	}
 	destPubKey, err := destID.ToPubKey(false)
 	if err != nil {
-		return Transaction{}, errors.Wrap(err, "converting dest id string to pubkey")
+		return Transaction{}, fmt.Errorf("converting dest id string to pubkey: %w", err)
 	}
 
 	return Transaction{

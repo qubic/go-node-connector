@@ -3,7 +3,7 @@ package types
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/pkg/errors"
+	"fmt"
 )
 
 const QxAddress = "BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARMID"
@@ -22,17 +22,17 @@ func NewAssetTransferPayload(assetName, issuer, newOwnerAndPossessor string, num
 	issuerIdentity := Identity(issuer)
 	issuerPubKey, err := issuerIdentity.ToPubKey(false)
 	if err != nil {
-		return AssetTransferPayload{}, errors.Wrap(err, "failed to obtain issuer public key")
+		return AssetTransferPayload{}, fmt.Errorf("failed to obtain issuer public key: %w", err)
 	}
 
 	newOwnerAndPossessorIdentity := Identity(newOwnerAndPossessor)
 	newOwnerAndPossessorPubKey, err := newOwnerAndPossessorIdentity.ToPubKey(false)
 	if err != nil {
-		return AssetTransferPayload{}, errors.Wrap(err, "failed to obtain new owner public key")
+		return AssetTransferPayload{}, fmt.Errorf("failed to obtain new owner public key: %w", err)
 	}
 
 	if len(assetName) > 7 {
-		return AssetTransferPayload{}, errors.Errorf("asset name '%s' is longer than 7", assetName)
+		return AssetTransferPayload{}, fmt.Errorf("asset name '%s' is longer than 7", assetName)
 	}
 
 	var assetNameBytes [8]byte
@@ -52,22 +52,22 @@ func (atp *AssetTransferPayload) MarshallBinary() ([]byte, error) {
 
 	err := binary.Write(&buff, binary.LittleEndian, atp.issuer)
 	if err != nil {
-		return nil, errors.Wrap(err, "writing issuer public key to buffer")
+		return nil, fmt.Errorf("writing issuer public key to buffer: %w", err)
 	}
 
 	err = binary.Write(&buff, binary.LittleEndian, atp.newOwnerAndPossessor)
 	if err != nil {
-		return nil, errors.Wrap(err, "writing new owner and possessor public key to buffer")
+		return nil, fmt.Errorf("writing new owner and possessor public key to buffer: %w", err)
 	}
 
 	err = binary.Write(&buff, binary.LittleEndian, atp.assetName)
 	if err != nil {
-		return nil, errors.Wrap(err, "writing asset name to buffer")
+		return nil, fmt.Errorf("writing asset name to buffer: %w", err)
 	}
 
 	err = binary.Write(&buff, binary.LittleEndian, atp.numberOfUnits)
 	if err != nil {
-		return nil, errors.Wrap(err, "writing number of units to buffer")
+		return nil, fmt.Errorf("writing number of units to buffer: %w", err)
 	}
 
 	return buff.Bytes(), nil
@@ -78,18 +78,18 @@ func NewAssetTransferTransaction(sourceID string, targetTick uint32, transferFee
 	sourceIdentity := Identity(sourceID)
 	sourcePublicKey, err := sourceIdentity.ToPubKey(false)
 	if err != nil {
-		return Transaction{}, errors.Wrap(err, "converting source id to public key")
+		return Transaction{}, fmt.Errorf("converting source id to public key: %w", err)
 	}
 
 	destinationIdentity := Identity(QxAddress)
 	destinationPublicKey, err := destinationIdentity.ToPubKey(false)
 	if err != nil {
-		return Transaction{}, errors.Wrap(err, "converting destination id to public key")
+		return Transaction{}, fmt.Errorf("converting destination id to public key: %w", err)
 	}
 
 	input, err := payload.MarshallBinary()
 	if err != nil {
-		return Transaction{}, errors.Wrap(err, "marshalling transaction payload to binary format")
+		return Transaction{}, fmt.Errorf("marshalling transaction payload to binary format: %w", err)
 	}
 
 	return Transaction{
