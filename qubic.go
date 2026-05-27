@@ -260,6 +260,7 @@ func (qc *Client) GetQuorumVotes(ctx context.Context, tickNumber uint32) (types.
 	request := struct {
 		Tick      uint32
 		VoteFlags [(types.NumberOfComputors + 7) / 8]byte
+		_Pad      [3]byte
 	}{Tick: tickNumber}
 
 	var result types.QuorumVotes
