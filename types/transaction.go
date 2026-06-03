@@ -155,6 +155,26 @@ func (tx *Transaction) ID() (string, error) {
 	return id.String(), nil
 }
 
+func (tx *Transaction) MustDigest() [32]byte {
+	digest, err := tx.Digest()
+	if err != nil {
+		panic(fmt.Errorf("getting digest: %w", err))
+	}
+	return digest
+}
+
+func (tx *Transaction) MustID() string {
+	digest := tx.MustDigest()
+
+	var id Identity
+	id, err := id.FromPubKey(digest, true)
+	if err != nil {
+		panic(fmt.Errorf("getting id from pubkey: %w", err))
+	}
+
+	return id.String()
+}
+
 func (tx *Transaction) EncodeToBase64() (string, error) {
 	txPacket, err := tx.MarshallBinary()
 	if err != nil {

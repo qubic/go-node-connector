@@ -35,6 +35,44 @@ func TestTransaction_MarshallUnmarshall(t *testing.T) {
 	}
 }
 
+func TestTransaction_MustDigest_MatchesDigest(t *testing.T) {
+	tx := Transaction{
+		SourcePublicKey:      [32]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		DestinationPublicKey: [32]byte{11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
+		Amount:               100,
+		Tick:                 200,
+		InputType:            300,
+		InputSize:            10,
+		Input:                []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		Signature:            [64]byte{21, 22, 23, 24, 25, 26, 27, 28, 29, 30},
+	}
+
+	want, err := tx.Digest()
+	require.NoError(t, err, "computing digest")
+
+	got := tx.MustDigest()
+	require.Equal(t, want, got, "MustDigest should match Digest")
+}
+
+func TestTransaction_MustID_MatchesID(t *testing.T) {
+	tx := Transaction{
+		SourcePublicKey:      [32]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		DestinationPublicKey: [32]byte{11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
+		Amount:               100,
+		Tick:                 200,
+		InputType:            300,
+		InputSize:            10,
+		Input:                []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		Signature:            [64]byte{21, 22, 23, 24, 25, 26, 27, 28, 29, 30},
+	}
+
+	want, err := tx.ID()
+	require.NoError(t, err, "computing ID")
+
+	got := tx.MustID()
+	require.Equal(t, want, got, "MustID should match ID")
+}
+
 func TestSendManyTransferPayload_Size(t *testing.T) {
 	var payload SendManyTransferPayload
 	b, err := payload.MarshallBinary()
