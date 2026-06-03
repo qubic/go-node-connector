@@ -146,8 +146,7 @@ func (tx *Transaction) ID() (string, error) {
 		return "", fmt.Errorf("getting digest: %w", err)
 	}
 
-	var id Identity
-	id, err = id.FromPubKey(digest, true)
+	id, err := NewTxID(digest)
 	if err != nil {
 		return "", fmt.Errorf("getting id from pubkey: %w", err)
 	}
@@ -164,14 +163,7 @@ func (tx *Transaction) MustDigest() [32]byte {
 }
 
 func (tx *Transaction) MustID() string {
-	digest := tx.MustDigest()
-
-	var id Identity
-	id, err := id.FromPubKey(digest, true)
-	if err != nil {
-		panic(fmt.Errorf("getting id from pubkey: %w", err))
-	}
-
+	id := MustNewTxID(tx.MustDigest())
 	return id.String()
 }
 

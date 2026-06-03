@@ -93,6 +93,36 @@ func (i *Identity) ToPubKey(isLowerCase bool) ([32]byte, error) {
 	return pubKey, nil
 }
 
+// NewTxID creates a transaction-ID Identity (lowercase) from a 32-byte digest.
+func NewTxID(digest [32]byte) (Identity, error) {
+	var id Identity
+	return id.FromPubKey(digest, true)
+}
+
+// NewAddress creates an address Identity (uppercase) from a 32-byte public key.
+func NewAddress(pubKey [32]byte) (Identity, error) {
+	var id Identity
+	return id.FromPubKey(pubKey, false)
+}
+
+// MustNewTxID is like NewTxID but panics on error.
+func MustNewTxID(digest [32]byte) Identity {
+	id, err := NewTxID(digest)
+	if err != nil {
+		panic(fmt.Errorf("creating tx id: %w", err))
+	}
+	return id
+}
+
+// MustNewAddress is like NewAddress but panics on error.
+func MustNewAddress(pubKey [32]byte) Identity {
+	id, err := NewAddress(pubKey)
+	if err != nil {
+		panic(fmt.Errorf("creating address: %w", err))
+	}
+	return id
+}
+
 func (i *Identity) String() string {
 	if i == nil {
 		return ""
