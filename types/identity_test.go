@@ -39,6 +39,64 @@ func TestGetIdentityFromPubkeyLowerCase(t *testing.T) {
 	}
 }
 
+func TestNewAddress_MatchesFromPubKeyUppercase(t *testing.T) {
+	pubKey := [32]byte{230, 252, 58, 173, 75, 89, 77, 130, 191, 49, 3, 161, 16, 22, 216, 13, 232, 131, 222, 135, 59, 206, 196, 142, 144, 57, 98, 134, 80, 59, 38, 19}
+	expectedIdentity := "QJRRSSKMJRDKUDTYVNYGAMQPULKAMILQQYOWBEXUDEUWQUMNGDHQYLOAJMEB"
+
+	got, err := NewAddress(pubKey)
+	if err != nil {
+		t.Fatalf("NewAddress returned err: %s", err.Error())
+	}
+
+	if cmp.Diff(string(got), expectedIdentity) != "" {
+		t.Fatalf("Mismatched return value. Expected: %s, got: %s", expectedIdentity, got)
+	}
+}
+
+func TestNewTxID_MatchesFromPubKeyLowercase(t *testing.T) {
+	digest := [32]byte{230, 252, 58, 173, 75, 89, 77, 130, 191, 49, 3, 161, 16, 22, 216, 13, 232, 131, 222, 135, 59, 206, 196, 142, 144, 57, 98, 134, 80, 59, 38, 19}
+	expectedIdentity := strings.ToLower("QJRRSSKMJRDKUDTYVNYGAMQPULKAMILQQYOWBEXUDEUWQUMNGDHQYLOAJMEB")
+
+	got, err := NewTxID(digest)
+	if err != nil {
+		t.Fatalf("NewTxID returned err: %s", err.Error())
+	}
+
+	if cmp.Diff(string(got), expectedIdentity) != "" {
+		t.Fatalf("Mismatched return value. Expected: %s, got: %s", expectedIdentity, got)
+	}
+}
+
+func TestMustNewAddress_MatchesNewAddress(t *testing.T) {
+	pubKey := [32]byte{230, 252, 58, 173, 75, 89, 77, 130, 191, 49, 3, 161, 16, 22, 216, 13, 232, 131, 222, 135, 59, 206, 196, 142, 144, 57, 98, 134, 80, 59, 38, 19}
+
+	want, err := NewAddress(pubKey)
+	if err != nil {
+		t.Fatalf("NewAddress returned err: %s", err.Error())
+	}
+
+	got := MustNewAddress(pubKey)
+
+	if cmp.Diff(string(got), string(want)) != "" {
+		t.Fatalf("Mismatched return value. Expected: %s, got: %s", want, got)
+	}
+}
+
+func TestMustNewTxID_MatchesNewTxID(t *testing.T) {
+	digest := [32]byte{230, 252, 58, 173, 75, 89, 77, 130, 191, 49, 3, 161, 16, 22, 216, 13, 232, 131, 222, 135, 59, 206, 196, 142, 144, 57, 98, 134, 80, 59, 38, 19}
+
+	want, err := NewTxID(digest)
+	if err != nil {
+		t.Fatalf("NewTxID returned err: %s", err.Error())
+	}
+
+	got := MustNewTxID(digest)
+
+	if cmp.Diff(string(got), string(want)) != "" {
+		t.Fatalf("Mismatched return value. Expected: %s, got: %s", want, got)
+	}
+}
+
 func TestGetPubKeyFromIdentityUppercase(t *testing.T) {
 	identity := "QJRRSSKMJRDKUDTYVNYGAMQPULKAMILQQYOWBEXUDEUWQUMNGDHQYLOAJMEB"
 	expectedPubKey := [32]byte{230, 252, 58, 173, 75, 89, 77, 130, 191, 49, 3, 161, 16, 22, 216, 13, 232, 131, 222, 135, 59, 206, 196, 142, 144, 57, 98, 134, 80, 59, 38, 19}
