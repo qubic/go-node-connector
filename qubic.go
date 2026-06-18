@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"time"
 
@@ -255,13 +256,16 @@ type PrefetchResult struct {
 	Ticks      []TickPrefetch
 }
 
-// prefetchOp is a single request/response pair in a pipelined batch. The same
-// ordered op list drives both the write phase and the read phase, so each
-// response is decoded into the dest that matches the request that produced it.
+// prefetchOp is a single request/response pair in a pipelined batch. Each op is
+// tagged with a unique DejaVu nonce: the node echoes it in the response header,
+// which is how we route each response back to the dest that requested it - the
+// node does not guarantee responses arrive in request order.
 type prefetchOp struct {
 	requestType uint8
 	requestData interface{}
 	dest        ReaderUnmarshaler
+	dejaVu      uint32
+	done        bool
 }
 
 // PrefetchTicks pipelines a batch of requests over the single underlying
@@ -275,9 +279,9 @@ type prefetchOp struct {
 // first write or read error aborts the batch, closes the (now unaligned)
 // connection so it is never reused, and returns the error.
 //
-// Response integrity relies on in-order TCP delivery plus the header type check
-// every unmarshaler performs: responses are read in the exact order requests
-// were written, and a desync surfaces as a type mismatch that aborts the batch.
+// The node does not guarantee responses arrive in request order, so each
+// request carries a unique DejaVu nonce that the node echoes in the response
+// header; the read phase routes every response back to its op by that nonce.
 func (qc *Client) PrefetchTicks(ctx context.Context, startTick, nrTicks uint32) (PrefetchResult, error) {
 	if nrTicks == 0 {
 		return PrefetchResult{}, errors.New("nrTicks must be greater than 0")
@@ -289,8 +293,8 @@ func (qc *Client) PrefetchTicks(ctx context.Context, startTick, nrTicks uint32) 
 
 	// once-per-batch requests
 	ops = append(ops,
-		prefetchOp{types.SystemInfoRequest, nil, &result.SystemInfo},
-		prefetchOp{types.CurrentTickInfoRequest, nil, &result.TickInfo},
+		prefetchOp{requestType: types.SystemInfoRequest, dest: &result.SystemInfo},
+		prefetchOp{requestType: types.CurrentTickInfoRequest, dest: &result.TickInfo},
 	)
 
 	// per-tick requests; dest pointers stay stable because Ticks is preallocated
@@ -299,15 +303,27 @@ func (qc *Client) PrefetchTicks(ctx context.Context, startTick, nrTicks uint32) 
 		result.Ticks[i].Tick = tick
 
 		ops = append(ops,
-			prefetchOp{types.QuorumTickRequest, newQuorumVotesRequest(tick), &result.Ticks[i].QuorumVotes},
-			prefetchOp{types.TickDataRequest, newTickDataRequest(tick), &result.Ticks[i].TickData},
-			prefetchOp{types.TickTransactionsRequest, newAllTickTransactionsRequest(tick), &result.Ticks[i].Transactions},
+			prefetchOp{requestType: types.QuorumTickRequest, requestData: newQuorumVotesRequest(tick), dest: &result.Ticks[i].QuorumVotes},
+			prefetchOp{requestType: types.TickDataRequest, requestData: newTickDataRequest(tick), dest: &result.Ticks[i].TickData},
+			prefetchOp{requestType: types.TickTransactionsRequest, requestData: newAllTickTransactionsRequest(tick), dest: &result.Ticks[i].Transactions},
 		)
 	}
 
+	// assign a unique, non-zero DejaVu to every op so responses can be matched
+	byDejaVu := make(map[uint32]*prefetchOp, len(ops))
+	for i := range ops {
+		dejaVu := uint32(rand.Int31())
+		for dejaVu == 0 || byDejaVu[dejaVu] != nil {
+			dejaVu = uint32(rand.Int31())
+		}
+		ops[i].dejaVu = dejaVu
+		byDejaVu[dejaVu] = &ops[i]
+	}
+
 	// write phase: pipeline every request without reading
-	for _, op := range ops {
-		packet, err := serializeRequest(ctx, op.requestType, op.requestData)
+	for i := range ops {
+		op := &ops[i]
+		packet, err := serializeRequestWithDejaVu(op.requestType, op.requestData, op.dejaVu)
 		if err != nil {
 			return PrefetchResult{}, fmt.Errorf("serializing prefetch request type %d: %w", op.requestType, err)
 		}
@@ -317,12 +333,10 @@ func (qc *Client) PrefetchTicks(ctx context.Context, startTick, nrTicks uint32) 
 		}
 	}
 
-	// read phase: drain every response in the same order
-	for _, op := range ops {
-		if err := qc.readPacketIntoDest(ctx, op.dest); err != nil {
-			qc.Close()
-			return PrefetchResult{}, fmt.Errorf("reading prefetch response type %d: %w", op.requestType, err)
-		}
+	// read phase: demultiplex interleaved packets and route them by DejaVu
+	if err := qc.drainPrefetch(ctx, ops, byDejaVu); err != nil {
+		qc.Close()
+		return PrefetchResult{}, fmt.Errorf("draining prefetch responses: %w", err)
 	}
 
 	// drop the zeroed transactions returned for empty/requested-but-absent slots
@@ -331,6 +345,100 @@ func (qc *Client) PrefetchTicks(ctx context.Context, startTick, nrTicks uint32) 
 	}
 
 	return result, nil
+}
+
+// drainPrefetch reads packets off the connection until every op's full response
+// has been buffered, then decodes each buffer into its dest. The node interleaves
+// packets from different responses, so packets are routed to per-op buffers by the
+// DejaVu nonce echoed in each header and framed by the header's Size field. A
+// multi-packet response (quorum votes, transactions) is complete once its
+// terminating EndResponse arrives; a single-packet response is complete on its
+// data packet. Unsolicited ExchangePublicPeers packets are skipped.
+func (qc *Client) drainPrefetch(ctx context.Context, ops []prefetchOp, byDejaVu map[uint32]*prefetchOp) error {
+	headerSize := binary.Size(types.RequestResponseHeader{})
+
+	buffers := make(map[uint32]*bytes.Buffer, len(ops))
+	for i := range ops {
+		buffers[ops[i].dejaVu] = &bytes.Buffer{}
+	}
+
+	remaining := len(ops)
+	for remaining > 0 {
+		readDeadline := time.Now().Add(defaultTimeout)
+		if deadline, ok := ctx.Deadline(); ok {
+			readDeadline = deadline
+		}
+		if err := qc.conn.SetReadDeadline(readDeadline); err != nil {
+			return fmt.Errorf("setting read deadline: %w", err)
+		}
+
+		headerBytes := make([]byte, headerSize)
+		if _, err := io.ReadFull(qc.conn, headerBytes); err != nil {
+			return fmt.Errorf("reading packet header: %w", err)
+		}
+
+		size := uint32(headerBytes[0]) | uint32(headerBytes[1])<<8 | uint32(headerBytes[2])<<16
+		respType := headerBytes[3]
+		dejaVu := binary.LittleEndian.Uint32(headerBytes[4:])
+
+		bodyLen := int(size) - headerSize
+		if bodyLen < 0 {
+			return fmt.Errorf("invalid packet size %d for type %d", size, respType)
+		}
+		body := make([]byte, bodyLen)
+		if _, err := io.ReadFull(qc.conn, body); err != nil {
+			return fmt.Errorf("reading packet body for type %d: %w", respType, err)
+		}
+
+		// unsolicited peer-exchange packets aren't tied to any request
+		if respType == types.ExchangePublicPeers {
+			continue
+		}
+
+		op, ok := byDejaVu[dejaVu]
+		if !ok {
+			return fmt.Errorf("unexpected response: dejaVu %d, type %d", dejaVu, respType)
+		}
+		if op.done {
+			// trailing packet (e.g. EndResponse) for an already-complete response
+			continue
+		}
+
+		buf := buffers[dejaVu]
+		buf.Write(headerBytes)
+		buf.Write(body)
+
+		if isResponseComplete(op.requestType, respType) {
+			op.done = true
+			remaining--
+		}
+	}
+
+	qc.conn.SetReadDeadline(time.Time{})
+
+	// every response is fully buffered now; decode each into its dest
+	for i := range ops {
+		op := &ops[i]
+		if err := op.dest.UnmarshallFromReader(buffers[op.dejaVu]); err != nil {
+			return fmt.Errorf("unmarshalling response type %d: %w", op.requestType, err)
+		}
+	}
+
+	return nil
+}
+
+// isResponseComplete reports whether respType terminates the response for a given
+// request type. Quorum and transaction responses stream multiple packets ending
+// in EndResponse. All other responses are a single packet: the node replies with
+// exactly one packet that is either the data packet or a bare EndResponse (e.g. an
+// empty tick), so the first routed packet completes the response regardless of type.
+func isResponseComplete(requestType, respType uint8) bool {
+	switch requestType {
+	case types.QuorumTickRequest, types.TickTransactionsRequest:
+		return respType == types.EndResponse
+	default:
+		return true
+	}
 }
 
 func newTickDataRequest(tick uint32) interface{} {
@@ -805,6 +913,20 @@ func serializeBinary(data interface{}) ([]byte, error) {
 }
 
 func serializeRequest(ctx context.Context, requestType uint8, requestData interface{}) ([]byte, error) {
+	var dejaVu uint32
+	if requestType != types.BroadcastTransaction {
+		dejaVu = uint32(rand.Int31())
+		if dejaVu == 0 {
+			dejaVu = 1
+		}
+	}
+
+	return serializeRequestWithDejaVu(requestType, requestData, dejaVu)
+}
+
+// serializeRequestWithDejaVu builds a request packet with an explicit DejaVu
+// nonce, used by pipelined prefetch so responses can be matched back to requests.
+func serializeRequestWithDejaVu(requestType uint8, requestData interface{}, dejaVu uint32) ([]byte, error) {
 	serializedReqData, err := serializeBinary(requestData)
 	if err != nil {
 		return nil, fmt.Errorf("serializing req data: %w", err)
@@ -817,12 +939,7 @@ func serializeRequest(ctx context.Context, requestType uint8, requestData interf
 	packetSize := uint32(packetHeaderSize + reqDataSize)
 
 	header.SetSize(packetSize)
-	if requestType == types.BroadcastTransaction {
-		header.ZeroDejaVu()
-	} else {
-		header.RandomizeDejaVu()
-	}
-
+	header.DejaVu = dejaVu
 	header.Type = requestType
 
 	serializedHeaderData, err := serializeBinary(header)
