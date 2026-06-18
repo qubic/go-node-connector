@@ -238,6 +238,134 @@ func getTickTransactionsNrTx(tickData types.TickData) int {
 	return 0
 }
 
+// TickPrefetch bundles the per-tick responses gathered in one prefetch batch.
+type TickPrefetch struct {
+	Tick         uint32
+	TickData     types.TickData
+	QuorumVotes  types.QuorumVotes
+	Transactions types.Transactions
+}
+
+// PrefetchResult is the full result of a single pipelined prefetch batch:
+// the once-per-batch responses plus one TickPrefetch per requested tick,
+// ordered by tick ascending.
+type PrefetchResult struct {
+	SystemInfo types.SystemInfo
+	TickInfo   types.TickInfo
+	Ticks      []TickPrefetch
+}
+
+// prefetchOp is a single request/response pair in a pipelined batch. The same
+// ordered op list drives both the write phase and the read phase, so each
+// response is decoded into the dest that matches the request that produced it.
+type prefetchOp struct {
+	requestType uint8
+	requestData interface{}
+	dest        ReaderUnmarshaler
+}
+
+// PrefetchTicks pipelines a batch of requests over the single underlying
+// connection: it writes SystemInfo + TickInfo + (QuorumVotes, TickData,
+// TickTransactions) for every tick in [startTick, startTick+nrTicks) back to
+// back, then drains every response in the same order. This pays roughly one
+// round-trip for the whole range instead of one per request.
+//
+// nrTicks must be > 0. The range is not validated against the chain tip - the
+// caller is responsible for ensuring the requested ticks exist. Fail-fast: the
+// first write or read error aborts the batch, closes the (now unaligned)
+// connection so it is never reused, and returns the error.
+//
+// Response integrity relies on in-order TCP delivery plus the header type check
+// every unmarshaler performs: responses are read in the exact order requests
+// were written, and a desync surfaces as a type mismatch that aborts the batch.
+func (qc *Client) PrefetchTicks(ctx context.Context, startTick, nrTicks uint32) (PrefetchResult, error) {
+	if nrTicks == 0 {
+		return PrefetchResult{}, errors.New("nrTicks must be greater than 0")
+	}
+
+	result := PrefetchResult{Ticks: make([]TickPrefetch, nrTicks)}
+
+	ops := make([]prefetchOp, 0, 2+int(nrTicks)*3)
+
+	// once-per-batch requests
+	ops = append(ops,
+		prefetchOp{types.SystemInfoRequest, nil, &result.SystemInfo},
+		prefetchOp{types.CurrentTickInfoRequest, nil, &result.TickInfo},
+	)
+
+	// per-tick requests; dest pointers stay stable because Ticks is preallocated
+	for i := uint32(0); i < nrTicks; i++ {
+		tick := startTick + i
+		result.Ticks[i].Tick = tick
+
+		ops = append(ops,
+			prefetchOp{types.QuorumTickRequest, newQuorumVotesRequest(tick), &result.Ticks[i].QuorumVotes},
+			prefetchOp{types.TickDataRequest, newTickDataRequest(tick), &result.Ticks[i].TickData},
+			prefetchOp{types.TickTransactionsRequest, newAllTickTransactionsRequest(tick), &result.Ticks[i].Transactions},
+		)
+	}
+
+	// write phase: pipeline every request without reading
+	for _, op := range ops {
+		packet, err := serializeRequest(ctx, op.requestType, op.requestData)
+		if err != nil {
+			return PrefetchResult{}, fmt.Errorf("serializing prefetch request type %d: %w", op.requestType, err)
+		}
+		if err := qc.writePacketToConn(ctx, packet); err != nil {
+			qc.Close()
+			return PrefetchResult{}, fmt.Errorf("writing prefetch request type %d: %w", op.requestType, err)
+		}
+	}
+
+	// read phase: drain every response in the same order
+	for _, op := range ops {
+		if err := qc.readPacketIntoDest(ctx, op.dest); err != nil {
+			qc.Close()
+			return PrefetchResult{}, fmt.Errorf("reading prefetch response type %d: %w", op.requestType, err)
+		}
+	}
+
+	// drop the zeroed transactions returned for empty/requested-but-absent slots
+	for i := range result.Ticks {
+		result.Ticks[i].Transactions = filterValidTransactions(result.Ticks[i].Transactions)
+	}
+
+	return result, nil
+}
+
+func newTickDataRequest(tick uint32) interface{} {
+	return struct{ Tick uint32 }{Tick: tick}
+}
+
+func newQuorumVotesRequest(tick uint32) interface{} {
+	return struct {
+		Tick      uint32
+		VoteFlags [(types.NumberOfComputors + 7) / 8]byte
+		_Pad      [3]byte
+	}{Tick: tick}
+}
+
+// newAllTickTransactionsRequest requests every transaction slot in the tick:
+// a zero flag means "send this one", so an all-zero flag set asks for all 4096.
+func newAllTickTransactionsRequest(tick uint32) interface{} {
+	return struct {
+		Tick             uint32
+		TransactionFlags [types.NumberOfTransactionsPerTick / 8]uint8
+	}{Tick: tick}
+}
+
+func filterValidTransactions(txs types.Transactions) types.Transactions {
+	valid := make(types.Transactions, 0, len(txs))
+	for _, tx := range txs {
+		// skip zeroed (empty) transactions
+		if tx.Signature == [64]byte{} {
+			continue
+		}
+		valid = append(valid, tx)
+	}
+	return valid
+}
+
 func (qc *Client) SendRawTransaction(ctx context.Context, rawTx []byte) error {
 	err := qc.sendRequest(ctx, types.BroadcastTransaction, rawTx, nil)
 	if err != nil {

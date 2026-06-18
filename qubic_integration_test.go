@@ -170,3 +170,62 @@ func TestQubicIntegration_GetActiveIpos(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, ipos)
 }
+
+func TestQubicIntegration_PrefetchTicks(t *testing.T) {
+	ctx := context.Background()
+
+	client, err := NewClient(ctx, nodeIp, "21841")
+	require.NoError(t, err)
+	defer client.Close()
+
+	tickInfo, err := client.GetTickInfo(ctx)
+	require.NoError(t, err)
+	require.Greater(t, tickInfo.Tick, uint32(20))
+
+	const nrTicks = uint32(5)
+	// stay a few ticks behind the tip so the whole range is already available
+	startTick := tickInfo.Tick - 10
+
+	result, err := client.PrefetchTicks(ctx, startTick, nrTicks)
+	require.NoError(t, err)
+
+	// once-per-batch responses are populated
+	assert.NotZero(t, result.SystemInfo.Tick)
+	assert.NotZero(t, result.TickInfo.Tick)
+	assert.GreaterOrEqual(t, result.TickInfo.Tick, startTick)
+
+	// one bundle per requested tick, ordered ascending
+	require.Len(t, result.Ticks, int(nrTicks))
+	for i, tp := range result.Ticks {
+		assert.Equal(t, startTick+uint32(i), tp.Tick)
+		// tick data, if present, must report the same tick number
+		if !tp.TickData.IsEmpty() {
+			assert.Equal(t, tp.Tick, tp.TickData.Tick)
+		}
+	}
+
+	// parity: a dedicated request for the first tick yields the same data as the
+	// pipelined batch (fresh connection, same node)
+	verifyClient, err := NewClient(ctx, nodeIp, "21841")
+	require.NoError(t, err)
+	defer verifyClient.Close()
+
+	wantTickData, err := verifyClient.GetTickData(ctx, startTick)
+	require.NoError(t, err)
+	assert.Equal(t, wantTickData, result.Ticks[0].TickData)
+
+	wantTxs, err := verifyClient.GetTickTransactions(ctx, startTick)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, wantTxs, result.Ticks[0].Transactions)
+}
+
+func TestQubicIntegration_PrefetchTicksZeroTicksReturnsError(t *testing.T) {
+	ctx := context.Background()
+
+	client, err := NewClient(ctx, nodeIp, "21841")
+	require.NoError(t, err)
+	defer client.Close()
+
+	_, err = client.PrefetchTicks(ctx, 1000, 0)
+	assert.Error(t, err)
+}
