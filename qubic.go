@@ -25,11 +25,25 @@ type Client struct {
 	Peers types.PublicPeers
 }
 
-func NewClient(ctx context.Context, nodeIP, nodePort string) (*Client, error) {
+type clientConfig struct {
+	fetchPeers bool
+}
+
+type Option func(*clientConfig)
+
+// WithoutPeers skips the peer request during client construction.
+func WithoutPeers() Option {
+	return func(c *clientConfig) { c.fetchPeers = false }
+}
+
+func NewClient(ctx context.Context, nodeIP, nodePort string, opts ...Option) (*Client, error) {
+	cfg := clientConfig{fetchPeers: true} // default preserves current behaviour
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	timeout := defaultTimeout
-	// Use the context deadline to calculate the timeout for net.DialTimeout
-	deadline, ok := ctx.Deadline()
-	if ok {
+	if deadline, ok := ctx.Deadline(); ok {
 		timeout = time.Until(deadline)
 	}
 
@@ -40,9 +54,11 @@ func NewClient(ctx context.Context, nodeIP, nodePort string) (*Client, error) {
 
 	c := Client{conn: conn}
 
-	c.Peers, err = c.getPeers(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("getting Peers: %w", err)
+	if cfg.fetchPeers {
+		c.Peers, err = c.getPeers(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("getting Peers: %w", err)
+		}
 	}
 
 	return &c, nil
