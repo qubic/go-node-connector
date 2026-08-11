@@ -325,6 +325,23 @@ func (qc *Client) PrefetchTicks(ctx context.Context, startTick, nrTicks uint32) 
 		)
 	}
 
+	if err := qc.runPrefetchBatch(ctx, ops); err != nil {
+		return PrefetchResult{}, err
+	}
+
+	// drop the zeroed transactions returned for empty/requested-but-absent slots
+	for i := range result.Ticks {
+		result.Ticks[i].Transactions = filterValidTransactions(result.Ticks[i].Transactions)
+	}
+
+	return result, nil
+}
+
+// runPrefetchBatch assigns a unique DejaVu nonce to every op, pipelines all
+// requests back to back, then drains and routes every response into its op's
+// dest by nonce. On the first serialize/write/read error it closes the (now
+// byte-unaligned) connection so it is never reused, and returns the error.
+func (qc *Client) runPrefetchBatch(ctx context.Context, ops []prefetchOp) error {
 	// assign a unique, non-zero DejaVu to every op so responses can be matched
 	byDejaVu := make(map[uint32]*prefetchOp, len(ops))
 	for i := range ops {
@@ -341,26 +358,21 @@ func (qc *Client) PrefetchTicks(ctx context.Context, startTick, nrTicks uint32) 
 		op := &ops[i]
 		packet, err := serializeRequestWithDejaVu(op.requestType, op.requestData, op.dejaVu)
 		if err != nil {
-			return PrefetchResult{}, fmt.Errorf("serializing prefetch request type %d: %w", op.requestType, err)
+			return fmt.Errorf("serializing prefetch request type %d: %w", op.requestType, err)
 		}
 		if err := qc.writePacketToConn(ctx, packet); err != nil {
 			qc.Close()
-			return PrefetchResult{}, fmt.Errorf("writing prefetch request type %d: %w", op.requestType, err)
+			return fmt.Errorf("writing prefetch request type %d: %w", op.requestType, err)
 		}
 	}
 
 	// read phase: demultiplex interleaved packets and route them by DejaVu
 	if err := qc.drainPrefetch(ctx, ops, byDejaVu); err != nil {
 		qc.Close()
-		return PrefetchResult{}, fmt.Errorf("draining prefetch responses: %w", err)
+		return fmt.Errorf("draining prefetch responses: %w", err)
 	}
 
-	// drop the zeroed transactions returned for empty/requested-but-absent slots
-	for i := range result.Ticks {
-		result.Ticks[i].Transactions = filterValidTransactions(result.Ticks[i].Transactions)
-	}
-
-	return result, nil
+	return nil
 }
 
 // drainPrefetch reads packets off the connection until every op's full response
@@ -444,13 +456,14 @@ func (qc *Client) drainPrefetch(ctx context.Context, ops []prefetchOp, byDejaVu 
 }
 
 // isResponseComplete reports whether respType terminates the response for a given
-// request type. Quorum and transaction responses stream multiple packets ending
-// in EndResponse. All other responses are a single packet: the node replies with
-// exactly one packet that is either the data packet or a bare EndResponse (e.g. an
-// empty tick), so the first routed packet completes the response regardless of type.
+// request type. Quorum, transaction and asset responses stream multiple packets
+// ending in EndResponse. All other responses are a single packet: the node replies
+// with exactly one packet that is either the data packet or a bare EndResponse (e.g.
+// an empty tick), so the first routed packet completes the response regardless of type.
 func isResponseComplete(requestType, respType uint8) bool {
 	switch requestType {
-	case types.QuorumTickRequest, types.TickTransactionsRequest:
+	case types.QuorumTickRequest, types.TickTransactionsRequest,
+		types.OwnedAssetsRequest, types.PossessedAssetsRequest:
 		return respType == types.EndResponse
 	default:
 		return true
@@ -488,6 +501,53 @@ func filterValidTransactions(txs types.Transactions) types.Transactions {
 		valid = append(valid, tx)
 	}
 	return valid
+}
+
+// AddressAssets bundles the owned and possessed assets for a single address.
+type AddressAssets struct {
+	Identity  string
+	Owned     types.OwnedAssets
+	Possessed types.PossessedAssets
+}
+
+// PrefetchOwnedAndPossessedAssets pipelines an OwnedAssets and a PossessedAssets
+// request for every id in one batch over the single underlying connection:
+// 2*len(ids) requests written back to back, then every response drained and
+// routed back to its dest by DejaVu nonce. This pays roughly one round trip for
+// the whole set instead of one per request.
+//
+// ids must be non-empty. Results are returned in input order: out[i] holds the
+// assets for ids[i]. Fail-fast: the first error (invalid identity, write or read
+// failure) aborts the batch, closes the connection so it is never reused, and
+// returns the error.
+func (qc *Client) PrefetchOwnedAndPossessedAssets(ctx context.Context, ids []string) ([]AddressAssets, error) {
+	if len(ids) == 0 {
+		return nil, errors.New("ids must not be empty")
+	}
+
+	// preallocated so &out[i].Owned / &out[i].Possessed dest pointers stay stable
+	out := make([]AddressAssets, len(ids))
+
+	ops := make([]prefetchOp, 0, len(ids)*2)
+	for i, id := range ids {
+		identity := types.Identity(id)
+		pubKey, err := identity.ToPubKey(false)
+		if err != nil {
+			return nil, fmt.Errorf("converting identity %q to public key: %w", id, err)
+		}
+		out[i].Identity = id
+
+		ops = append(ops,
+			prefetchOp{requestType: types.OwnedAssetsRequest, requestData: pubKey, dest: &out[i].Owned},
+			prefetchOp{requestType: types.PossessedAssetsRequest, requestData: pubKey, dest: &out[i].Possessed},
+		)
+	}
+
+	if err := qc.runPrefetchBatch(ctx, ops); err != nil {
+		return nil, err
+	}
+
+	return out, nil
 }
 
 func (qc *Client) SendRawTransaction(ctx context.Context, rawTx []byte) error {
