@@ -25,6 +25,9 @@ func (scd *SmartContractData) UnmarshallFromReader(r io.Reader) error {
 		return fmt.Errorf("Invalid header type, expected %d, found %d", ContractFunctionResponse, header.Type)
 	}
 
+	if header.GetSize() < uint32(binary.Size(header)) {
+		return fmt.Errorf("invalid packet size %d from node", header.GetSize())
+	}
 	data := make([]byte, header.GetSize()-uint32(binary.Size(header)))
 
 	err = binary.Read(r, binary.LittleEndian, data)

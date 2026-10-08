@@ -27,6 +27,9 @@ func (cs *Computors) UnmarshallFromReader(r io.Reader) error {
 		}
 
 		if header.Type != BroadcastComputors {
+			if header.GetSize() < uint32(headerSize) {
+				return fmt.Errorf("invalid packet size %d from node", header.GetSize())
+			}
 			ignoredbytes := make([]byte, header.GetSize()-uint32(headerSize))
 			_, err := r.Read(ignoredbytes)
 			if err != nil {
