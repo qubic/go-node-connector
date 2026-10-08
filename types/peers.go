@@ -45,6 +45,9 @@ func (pp *PublicPeers) UnmarshallFromReader(r io.Reader) error {
 		return fmt.Errorf("reading header: %w", err)
 	}
 
+	if nextHeader.GetSize() < uint32(binary.Size(nextHeader)) {
+		return fmt.Errorf("invalid packet size %d from node", nextHeader.GetSize())
+	}
 	ignoredBytes := make([]byte, nextHeader.GetSize()-uint32(binary.Size(nextHeader)))
 	_, err = r.Read(ignoredBytes)
 	if err != nil {
