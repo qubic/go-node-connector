@@ -144,6 +144,9 @@ func (ti *TickInfo) UnmarshallFromReader(r io.Reader) error {
 		}
 
 		if header.Type == 0 {
+			if header.GetSize() < uint32(binary.Size(header)) {
+				return fmt.Errorf("invalid packet size %d from node", header.GetSize())
+			}
 			ignoredBytes := make([]byte, header.GetSize()-uint32(binary.Size(header)))
 			_, err := r.Read(ignoredBytes)
 			if err != nil {
