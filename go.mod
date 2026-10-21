@@ -1,6 +1,6 @@
 module github.com/qubic/go-node-connector/v2
 
-go 1.26.0
+go 1.26.10
 
 require (
 	github.com/cloudflare/circl v1.6.5
